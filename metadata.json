@@ -1,0 +1,6 @@
+{
+  "name": "Earn Money Online",
+  "description": "Discover legitimate ways to earn money online with curated offers, side hustles, and expert guides.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

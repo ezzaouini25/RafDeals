@@ -1,0 +1,1387 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
+import {
+  ArrowLeft,
+  Save,
+  Loader2,
+  X,
+  AlertCircle,
+  CheckCircle,
+  Trash2,
+  Sparkles,
+  FileText,
+  Tag,
+  Search,
+  TrendingUp,
+  AlertTriangle,
+  Check,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  Upload,
+  Edit,
+  Users,
+  FolderOpen,
+  Eye as EyeIcon,
+} from 'lucide-react';
+
+// CKEditor imports
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import {
+  ClassicEditor,
+  Essentials,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Heading,
+  List,
+  BlockQuote,
+  Link as CKLink,
+  Image as CKImage,
+  ImageToolbar,
+  ImageCaption,
+  ImageStyle,
+  ImageInsert,
+  Table,
+  TableToolbar,
+  Alignment,
+  Undo,
+  RemoveFormat,
+  Paragraph,
+} from 'ckeditor5';
+import 'ckeditor5/ckeditor5.css';
+
+// SEO Packages
+import { parse } from 'node-html-parser';
+import readingTime from 'reading-time';
+
+// ✅ Offer insertion toolbar (opens OfferPickerModal above the editor)
+import ArticleEditorToolbar from '@/components/admin/ArticleEditorToolbar';
+
+// ============================================================
+// INTERFACES
+// ============================================================
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  type: 'offers' | 'articles' | 'both';
+}
+
+interface Author {
+  id: number;
+  name: string;
+  picture: string | null;
+}
+
+
+
+// ============================================================
+// TOAST (Sharp 0px corners, solid colors, and pure CSS countdown)
+// ============================================================
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info' | 'warning'; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  // Color schemes matching your layout
+  const styles = {
+    success: {
+      bg: 'bg-[#2ecc71]',
+      bar: 'bg-emerald-700/30',
+      title: 'Success!',
+      iconBg: 'bg-white text-[#2ecc71]',
+      icon: <Check size={18} strokeWidth={3} />,
+    },
+    error: {
+      bg: 'bg-[#e74c3c]',
+      bar: 'bg-rose-900/30',
+      title: 'Error!',
+      iconBg: 'bg-white text-[#e74c3c]',
+      icon: <X size={18} strokeWidth={3} />,
+    },
+    info: {
+      bg: 'bg-[#3498db]',
+      bar: 'bg-blue-900/30',
+      title: 'Info!',
+      iconBg: 'bg-white text-[#3498db]',
+      icon: <span className="font-bold text-lg italic">i</span>,
+    },
+    warning: {
+      bg: 'bg-[#f1c40f]',
+      bar: 'bg-amber-950/20',
+      title: 'Warning!',
+      iconBg: 'bg-white text-[#f1c40f]',
+      icon: <span className="font-bold text-lg">!</span>,
+    },
+  };
+
+  const current = styles[type] || styles.info;
+
+  return (
+    <>
+      <style jsx>{`
+        @keyframes shrinkBar {
+          0% { width: 100%; }
+          100% { width: 0%; }
+        }
+        .animate-shrink {
+          animation: shrinkBar 5s linear forwards;
+        }
+      `}</style>
+      <div className={`fixed top-20 right-6 z-50 w-full max-w-md ${current.bg} text-white rounded-none shadow-2xl overflow-hidden flex flex-col`}>
+        {/* Main Content Area */}
+        <div className="p-4 flex items-start gap-4 relative">
+          {/* White circular icon container on the left */}
+          <div className={`w-9 h-9 rounded-full ${current.iconBg} flex items-center justify-center shrink-0 shadow-sm mt-0.5`}>
+            {current.icon}
+          </div>
+
+          {/* Text Content */}
+          <div className="flex-1 pr-6">
+            <h4 className="font-bold text-base tracking-wide mb-0.5">{current.title}</h4>
+            <p className="text-sm opacity-95 leading-relaxed">{message}</p>
+          </div>
+
+          {/* Close Button */}
+          <button 
+            onClick={onClose} 
+            className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors p-1"
+            aria-label="Close"
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* Bottom Countdown Line (Pure CSS Keyframe Animation) */}
+        <div className={`w-full h-1.5 ${current.bar} relative overflow-hidden`}>
+          <div className="absolute top-0 left-0 bottom-0 bg-white/50 animate-shrink" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+
+// CKEditor Upload Adapter
+function CustomUploadAdapterPlugin(editor: any) {
+  editor.plugins.get('FileRepository').createUploadAdapter = (loader: any) => {
+    return {
+      upload: () => {
+        return new Promise(async (resolve, reject) => {
+          try {
+            const file = await loader.file;
+            if (!file) { reject('No file selected'); return; }
+            if (!file.type.startsWith('image/')) { reject('Please upload an image file'); return; }
+            if (file.size > 5 * 1024 * 1024) { reject('Image too large. Max 5MB allowed'); return; }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', 'articles');
+
+            const response = await fetch('/api/admin/upload', {
+              method: 'POST',
+              body: formData,
+            });
+
+            const data = await response.json();
+            if (!response.ok) { reject(data.error || 'Upload failed'); return; }
+
+            resolve({ default: data.url });
+          } catch (error) {
+            reject('Upload failed');
+          }
+        });
+      },
+      abort: () => {},
+    };
+  };
+}
+
+// SEO Analysis Function
+function analyzeSEO(content: string, focusKeyword: string, title: string, metaDescription: string, metaKeywords: string) {
+  const results = {
+    score: 0,
+    checks: [] as { 
+      name: string; 
+      passed: boolean; 
+      status: 'success' | 'warning' | 'error';
+      message: string; 
+      icon: any;
+      current: number | string;
+      target: string;
+    }[],
+  };
+
+  if (!focusKeyword) {
+    results.checks.push({
+      name: 'Focus Keyword',
+      passed: false,
+      status: 'error',
+      message: 'Enter a focus keyword for SEO analysis',
+      icon: AlertTriangle,
+      current: '—',
+      target: 'Enter keyword',
+    });
+    return results;
+  }
+
+  const html = parse(content);
+  const textContent = html.textContent || '';
+  const wordCount = textContent.split(/\s+/).filter(w => w.length > 0).length;
+  const readingStats = readingTime(textContent);
+  const keywordCount = (textContent.toLowerCase().match(new RegExp(focusKeyword.toLowerCase(), 'g')) || []).length;
+  const density = wordCount > 0 ? (keywordCount / wordCount) * 100 : 0;
+
+  // 1. Keyword in Title
+  const keywordInTitle = title.toLowerCase().includes(focusKeyword.toLowerCase());
+  results.checks.push({
+    name: 'Keyword in Title',
+    passed: keywordInTitle,
+    status: keywordInTitle ? 'success' : 'error',
+    message: keywordInTitle ? 'Keyword found in title' : 'Add keyword to title',
+    icon: keywordInTitle ? Check : X,
+    current: keywordInTitle ? 'Found' : 'Not found',
+    target: 'Must include keyword',
+  });
+  if (keywordInTitle) results.score += 15;
+
+  // 2. Keyword in Meta Description
+  const keywordInMeta = metaDescription?.toLowerCase().includes(focusKeyword.toLowerCase()) || false;
+  results.checks.push({
+    name: 'Keyword in Meta Description',
+    passed: keywordInMeta,
+    status: keywordInMeta ? 'success' : 'error',
+    message: keywordInMeta ? 'Keyword found in meta description' : 'Add keyword to meta description',
+    icon: keywordInMeta ? Check : X,
+    current: keywordInMeta ? 'Found' : 'Not found',
+    target: 'Must include keyword',
+  });
+  if (keywordInMeta) results.score += 15;
+
+  // 3. Title Length (30-60 chars)
+  const titleLength = title.length;
+  const titleStatus = titleLength >= 30 && titleLength <= 60 ? 'success' : titleLength > 60 ? 'error' : 'warning';
+  results.checks.push({
+    name: 'Title Length',
+    passed: titleStatus === 'success',
+    status: titleStatus,
+    message: titleStatus === 'success' ? `${titleLength} characters (optimal)` : 
+             titleLength > 60 ? `${titleLength} characters (too long)` : `${titleLength} characters (too short)`,
+    icon: titleStatus === 'success' ? Check : titleStatus === 'warning' ? CircleAlert : X,
+    current: `${titleLength} chars`,
+    target: '30-60 characters',
+  });
+  if (titleStatus === 'success') results.score += 10;
+
+  // 4. Meta Description Length (120-160 chars)
+  const metaLength = metaDescription?.length || 0;
+  const metaStatus = metaLength >= 120 && metaLength <= 160 ? 'success' : metaLength > 160 ? 'error' : 'warning';
+  results.checks.push({
+    name: 'Meta Description Length',
+    passed: metaStatus === 'success',
+    status: metaStatus,
+    message: metaStatus === 'success' ? `${metaLength} characters (optimal)` :
+             metaLength > 160 ? `${metaLength} characters (too long)` : `${metaLength} characters (too short)`,
+    icon: metaStatus === 'success' ? Check : metaStatus === 'warning' ? CircleAlert : X,
+    current: `${metaLength} chars`,
+    target: '120-160 characters',
+  });
+  if (metaStatus === 'success') results.score += 10;
+
+  // 5. Content Length (600+ words)
+  const contentStatus = wordCount >= 600 ? 'success' : 'warning';
+  results.checks.push({
+    name: 'Content Length',
+    passed: contentStatus === 'success',
+    status: contentStatus,
+    message: contentStatus === 'success' ? `${wordCount} words (good)` : `${wordCount} words (add more content)`,
+    icon: contentStatus === 'success' ? Check : CircleAlert,
+    current: `${wordCount} words`,
+    target: '600+ words',
+  });
+  if (contentStatus === 'success') results.score += 15;
+
+  // 6. Keyword Density (1-3%)
+  const densityStatus = density >= 1 && density <= 3 ? 'success' : density > 3 ? 'error' : 'warning';
+  results.checks.push({
+    name: 'Keyword Density',
+    passed: densityStatus === 'success',
+    status: densityStatus,
+    message: densityStatus === 'success' ? `${density.toFixed(1)}% (optimal)` :
+             density > 3 ? `${density.toFixed(1)}% (too high)` : `${density.toFixed(1)}% (too low)`,
+    icon: densityStatus === 'success' ? Check : densityStatus === 'warning' ? CircleAlert : X,
+    current: `${density.toFixed(1)}%`,
+    target: '1-3%',
+  });
+  if (densityStatus === 'success') results.score += 15;
+
+  // 7. Keyword Count (3-5 times)
+  const countStatus = keywordCount >= 3 && keywordCount <= 5 ? 'success' : keywordCount > 5 ? 'error' : 'warning';
+  results.checks.push({
+    name: 'Keyword Count',
+    passed: countStatus === 'success',
+    status: countStatus,
+    message: countStatus === 'success' ? `${keywordCount} times (optimal)` :
+             keywordCount > 5 ? `${keywordCount} times (too many)` : `${keywordCount} times (too few)`,
+    icon: countStatus === 'success' ? Check : countStatus === 'warning' ? CircleAlert : X,
+    current: `${keywordCount} times`,
+    target: '3-5 times',
+  });
+  if (countStatus === 'success') results.score += 15;
+
+  // 8. Headings (H1/H2 with keyword)
+  const h1s = html.querySelectorAll('h1');
+  const h2s = html.querySelectorAll('h2');
+  const keywordInH1 = h1s.some(h => h.textContent?.toLowerCase().includes(focusKeyword.toLowerCase()));
+  const keywordInH2 = h2s.some(h => h.textContent?.toLowerCase().includes(focusKeyword.toLowerCase()));
+  const headingStatus = keywordInH1 || keywordInH2 ? 'success' : 'warning';
+  results.checks.push({
+    name: 'Keyword in Headings',
+    passed: headingStatus === 'success',
+    status: headingStatus,
+    message: headingStatus === 'success' ? 'Keyword in H1/H2' : 'Add keyword to H1 or H2',
+    icon: headingStatus === 'success' ? Check : CircleAlert,
+    current: headingStatus === 'success' ? 'Found' : 'Not found',
+    target: 'H1 or H2 with keyword',
+  });
+  if (headingStatus === 'success') results.score += 10;
+
+  // 9. Images with Alt Text
+  const images = html.querySelectorAll('img');
+  const imagesWithAlt = images.filter(img => img.getAttribute('alt') && img.getAttribute('alt')?.trim() !== '');
+  const altStatus = images.length === 0 || imagesWithAlt.length === images.length ? 'success' : 'warning';
+  results.checks.push({
+    name: 'Image Alt Text',
+    passed: altStatus === 'success',
+    status: altStatus,
+    message: altStatus === 'success' ? `${imagesWithAlt.length}/${images.length} have alt text` : `${images.length - imagesWithAlt.length} images missing alt text`,
+    icon: altStatus === 'success' ? Check : CircleAlert,
+    current: `${imagesWithAlt.length}/${images.length}`,
+    target: 'All images need alt text',
+  });
+  if (altStatus === 'success' && images.length > 0) results.score += 5;
+
+  // 10. Reading Time (3+ min)
+  const readTimeMinutes = Math.ceil(readingStats.minutes);
+  const readStatus = readTimeMinutes >= 3 ? 'success' : 'warning';
+  results.checks.push({
+    name: 'Reading Time',
+    passed: readStatus === 'success',
+    status: readStatus,
+    message: readStatus === 'success' ? `${readTimeMinutes} min read (good)` : `${readTimeMinutes} min read (too short)`,
+    icon: readStatus === 'success' ? Check : CircleAlert,
+    current: `${readTimeMinutes} min`,
+    target: '3+ minutes',
+  });
+  if (readStatus === 'success') results.score += 5;
+
+  // 11. Links
+  const links = html.querySelectorAll('a');
+  const linkStatus = links.length > 0 ? 'success' : 'warning';
+  results.checks.push({
+    name: 'Links',
+    passed: linkStatus === 'success',
+    status: linkStatus,
+    message: linkStatus === 'success' ? `${links.length} links found` : 'Add internal or external links',
+    icon: linkStatus === 'success' ? Check : CircleAlert,
+    current: `${links.length} links`,
+    target: '1+ links',
+  });
+  if (linkStatus === 'success') results.score += 5;
+
+  // 12. Lists
+  const uls = html.querySelectorAll('ul');
+  const ols = html.querySelectorAll('ol');
+  const listStatus = uls.length > 0 || ols.length > 0 ? 'success' : 'warning';
+  results.checks.push({
+    name: 'Lists',
+    passed: listStatus === 'success',
+    status: listStatus,
+    message: listStatus === 'success' ? `${uls.length + ols.length} lists found` : 'Add bullet or numbered lists',
+    icon: listStatus === 'success' ? Check : CircleAlert,
+    current: `${uls.length + ols.length} lists`,
+    target: '1+ lists',
+  });
+  if (listStatus === 'success') results.score += 5;
+
+  // 13. Meta Keywords
+  const kwStatus = metaKeywords && metaKeywords.length > 0 ? 'success' : 'warning';
+  results.checks.push({
+    name: 'Meta Keywords',
+    passed: kwStatus === 'success',
+    status: kwStatus,
+    message: kwStatus === 'success' ? 'Meta keywords added' : 'Add meta keywords',
+    icon: kwStatus === 'success' ? Check : CircleAlert,
+    current: kwStatus === 'success' ? 'Added' : 'Not added',
+    target: 'Add keywords',
+  });
+  if (kwStatus === 'success') results.score += 5;
+
+  return results;
+}
+
+export default function EditArticlePage() {
+  const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isEditorReady, setIsEditorReady] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [focusKeyword, setFocusKeyword] = useState('');
+  const [seoResults, setSeoResults] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'seo' | 'settings' | 'meta'>('seo');
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+
+  // ✅ CKEditor instance ref (used by ArticleEditorToolbar to insert [offer:ID])
+  const editorRef = useRef<any>(null);
+
+  // Filter options state
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [authors, setAuthors] = useState<Author[]>([]);
+  const [filterLoading, setFilterLoading] = useState(true);
+
+  const [formData, setFormData] = useState({
+    id: '',
+    title: '',
+    slug: '',
+    description: '',
+    content: '',
+    category_id: '',
+    author_id: '',
+    views: 0,
+    meta_title: '',
+    meta_description: '',
+    meta_keywords: '',
+    is_active: true,
+    is_boosted: false,
+    cover_image: '',
+  });
+
+  // ============================================================
+  // FETCH CATEGORIES & AUTHORS
+  // ============================================================
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        setFilterLoading(true);
+
+        const catRes = await fetch('/api/admin/categories');
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          const filtered = (catData.categories || []).filter(
+            (cat: Category) => cat.type === 'articles' || cat.type === 'both'
+          );
+          setCategories(filtered);
+        }
+
+        const authRes = await fetch('/api/admin/authors');
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          setAuthors(authData.authors || []);
+        }
+      } catch (error) {
+        console.error('Error fetching filter options:', error);
+      } finally {
+        setFilterLoading(false);
+      }
+    };
+    fetchFilterOptions();
+  }, []);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+  };
+
+  const generateSlug = (title: string) => {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  };
+
+  // ============================================================
+  // FETCH ARTICLE DATA
+  // ============================================================
+  useEffect(() => {
+    const fetchArticle = async () => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/articles/edit?id=${id}`, {
+          cache: 'no-store',
+        });
+        
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to fetch article');
+        }
+        
+        const data = await res.json();
+        const article = data.article;
+
+        if (!article) {
+          throw new Error('Article not found');
+        }
+
+        setFormData({
+          id: String(article.id),
+          title: article.title || '',
+          slug: article.slug || '',
+          description: article.description || '',
+          content: article.content || '',
+          category_id: String(article.category_id || ''),
+          author_id: String(article.author_id || ''),
+          views: article.views_raw || article.views || 0,
+          meta_title: article.meta_title || '',
+          meta_description: article.meta_description || '',
+          meta_keywords: article.meta_keywords || '',
+          is_active: article.is_active === 1 || article.is_active === true,
+          is_boosted: article.is_boosted === 1 || article.is_boosted === true,
+          cover_image: article.cover_image || '',
+        });
+
+        if (article.cover_image) {
+          setCoverImagePreview(article.cover_image);
+        }
+
+        // Set focus keyword from meta keywords
+        if (article.meta_keywords) {
+          const keywords = article.meta_keywords.split(',').map((k: string) => k.trim());
+          if (keywords.length > 0) {
+            setFocusKeyword(keywords[0]);
+          }
+        }
+      } catch (error: any) {
+        showToast(error.message || 'Failed to load article', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArticle();
+  }, [id]);
+
+  // ============================================================
+  // UPDATE SEO when content changes
+  // ============================================================
+  useEffect(() => {
+    if (focusKeyword) {
+      const results = analyzeSEO(
+        formData.content,
+        focusKeyword,
+        formData.meta_title || formData.title,
+        formData.meta_description || formData.description,
+        formData.meta_keywords
+      );
+      setSeoResults(results);
+    } else {
+      setSeoResults(null);
+    }
+  }, [formData.content, formData.title, formData.meta_title, formData.meta_description, formData.description, formData.meta_keywords, focusKeyword]);
+
+  // Initialize CKEditor
+  useEffect(() => {
+    if (ClassicEditor) {
+      setIsEditorReady(true);
+    }
+  }, []);
+
+  // Editor config
+  const editorConfig = {
+    licenseKey: 'GPL',
+    plugins: [
+      Essentials,
+      Bold,
+      Italic,
+      Underline,
+      Strikethrough,
+      Heading,
+      List,
+      BlockQuote,
+      CKLink,
+      CKImage,
+      ImageToolbar,
+      ImageCaption,
+      ImageStyle,
+      ImageInsert,
+      Table,
+      TableToolbar,
+      Alignment,
+      Undo,
+      RemoveFormat,
+      Paragraph,
+    ],
+    // ✅ Upload adapter must live here (not in `plugins[]`)
+    extraPlugins: [CustomUploadAdapterPlugin],
+    toolbar: {
+      items: [
+        'heading',
+        '|',
+        'bold',
+        'italic',
+        'underline',
+        'strikethrough',
+        '|',
+        'bulletedList',
+        'numberedList',
+        '|',
+        'blockQuote',
+        'link',
+        '|',
+        'insertImage',
+        'insertTable',
+        '|',
+        'alignment',
+        '|',
+        'undo',
+        'redo',
+        '|',
+        'removeFormat',
+      ],
+    },
+    heading: {
+      options: [
+        { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+        { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+        { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+        { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
+        { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' },
+      ] as any,
+    },
+    alignment: {
+      options: ['left', 'center', 'right', 'justify'] as any,
+    },
+    image: {
+      toolbar: ['imageStyle:block', 'imageStyle:side', '|', 'imageTextAlternative'],
+    },
+    table: {
+      contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells'],
+    },
+    placeholder: 'Write your article content here...',
+  };
+
+  // Handle Cover Image Upload
+  const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please upload an image file', 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image too large. Max 5MB allowed', 'error');
+      return;
+    }
+
+    setCoverImageFile(file);
+    setRemoveExistingImage(false);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCoverImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Remove Cover Image
+  const removeCoverImage = () => {
+    if (formData.cover_image) {
+      setRemoveExistingImage(true);
+    }
+    setCoverImagePreview(null);
+    setCoverImageFile(null);
+  };
+
+  // Upload Cover Image to Server
+  const uploadCoverImage = async (): Promise<string | null> => {
+    if (!coverImageFile) return null;
+
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', coverImageFile);
+      uploadFormData.append('type', 'articles');
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: uploadFormData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      return data.url;
+    } catch (error) {
+      showToast('Failed to upload cover image', 'error');
+      return null;
+    }
+  };
+
+  // ============================================================
+  // HANDLE SUBMIT
+  // ============================================================
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    if (!formData.title || !formData.slug || !formData.content) {
+      showToast('Title, slug, and content are required', 'error');
+      setSaving(false);
+      return;
+    }
+
+    if (!formData.category_id) {
+      showToast('Please select a category', 'error');
+      setSaving(false);
+      return;
+    }
+
+    if (!formData.author_id) {
+      showToast('Please select an author', 'error');
+      setSaving(false);
+      return;
+    }
+
+    try {
+      let coverImageUrl = formData.cover_image;
+
+      if (removeExistingImage) {
+        coverImageUrl = '';
+      }
+
+      if (coverImageFile) {
+        const uploadedUrl = await uploadCoverImage();
+        if (uploadedUrl) {
+          coverImageUrl = uploadedUrl;
+        }
+      }
+
+      const submitData = new FormData();
+      submitData.append('id', formData.id);
+      submitData.append('title', formData.title);
+      submitData.append('slug', formData.slug);
+      submitData.append('description', formData.description || '');
+      submitData.append('content', formData.content);
+      submitData.append('category_id', String(formData.category_id));
+      submitData.append('author_id', String(formData.author_id));
+      submitData.append('views', String(formData.views || 0));
+      submitData.append('meta_title', formData.meta_title || '');
+      submitData.append('meta_description', formData.meta_description || '');
+      submitData.append('meta_keywords', formData.meta_keywords || '');
+      submitData.append('is_active', String(formData.is_active));
+      submitData.append('is_boosted', String(formData.is_boosted));
+      submitData.append('cover_image', coverImageUrl);
+      submitData.append('remove_image', String(removeExistingImage));
+
+      const res = await fetch('/api/admin/articles/edit', {
+        method: 'PUT',
+        body: submitData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update article');
+      }
+
+      showToast('Article updated successfully!', 'success');
+      setTimeout(() => router.push('/admin/articles'), 3000);
+    } catch (err: any) {
+      showToast(err.message || 'Error updating article', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    if (status === 'success') return 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5';
+    if (status === 'warning') return 'text-amber-400 border-amber-500/20 bg-amber-500/5';
+    return 'text-rose-400 border-rose-500/20 bg-rose-500/5';
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-emerald-400';
+    if (score >= 50) return 'text-amber-400';
+    return 'text-rose-400';
+  };
+
+  const getScoreBg = (score: number) => {
+    if (score >= 80) return 'bg-emerald-500';
+    if (score >= 50) return 'bg-amber-500';
+    return 'bg-rose-500';
+  };
+
+  const getScoreLabel = (score: number) => {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Needs Improvement';
+    return 'Poor';
+  };
+
+  const getStatusIcon = (status: string) => {
+    if (status === 'success') return <CircleCheck size={16} className="text-emerald-400 shrink-0" />;
+    if (status === 'warning') return <CircleAlert size={16} className="text-amber-400 shrink-0" />;
+    return <Circle size={16} className="text-rose-400 shrink-0" />;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 size={32} className="animate-spin text-yellow" />
+        <span className="ml-3 text-slate-500 dark:text-white/40">Loading article...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-4 sm:p-6">
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
+
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/articles"
+            className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <Edit size={24} className="text-yellow" />
+              Edit Article
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
+              Edit article with real-time SEO optimization
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          {saving ? 'Saving...' : 'Update Article'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* MAIN FORM */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Basic Info */}
+          <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Basic Information</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      title: e.target.value,
+                      slug: formData.slug || generateSlug(e.target.value),
+                      meta_title: formData.meta_title || e.target.value,
+                    });
+                  }}
+                  placeholder="Enter article title..."
+                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+                />
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
+                  {formData.title.length}/255 characters
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
+                  Slug *
+                </label>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <span className="text-slate-500 dark:text-white/30 text-sm shrink-0 hidden sm:block">/blog/</span>
+                  <input
+                    type="text"
+                    required
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    placeholder="article-url-slug"
+                    className="flex-1 px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, slug: generateSlug(formData.title) })}
+                    className="px-4 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors whitespace-nowrap"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
+                  Description (Meta Description)
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      description: e.target.value,
+                      meta_description: formData.meta_description || e.target.value,
+                    });
+                  }}
+                  rows={3}
+                  placeholder="Brief description of your article (used for SEO)"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors resize-y"
+                />
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
+                  {formData.description.length}/500 characters
+                </div>
+              </div>
+
+              {/* ============================================================
+                  CATEGORY DROPDOWN - FROM CATEGORIES TABLE
+                  ============================================================ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5 flex items-center gap-2">
+                    <FolderOpen size={14} />
+                    Category *
+                  </label>
+                  <select
+                    value={formData.category_id}
+                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+                    required
+                  >
+                    <option value="">Select a category...</option>
+                    {filterLoading ? (
+                      <option value="" disabled>Loading categories...</option>
+                    ) : categories.length === 0 ? (
+                      <option value="" disabled>No categories available</option>
+                    ) : (
+                      categories.map((cat) => (
+                        <option key={cat.id} value={String(cat.id)}>
+                          {cat.name} {cat.type === 'both' ? '(Both)' : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                {/* ============================================================
+                    AUTHOR DROPDOWN - WITH NAME + PICTURE
+                    ============================================================ */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5 flex items-center gap-2">
+                    <Users size={14} />
+                    Author *
+                  </label>
+                  <select
+                    value={formData.author_id}
+                    onChange={(e) => setFormData({ ...formData, author_id: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+                    required
+                  >
+                    <option value="">Select an author...</option>
+                    {filterLoading ? (
+                      <option value="" disabled>Loading authors...</option>
+                    ) : authors.length === 0 ? (
+                      <option value="" disabled>No authors available</option>
+                    ) : (
+                      authors.map((author) => (
+                        <option key={author.id} value={String(author.id)}>
+                          {author.picture ? (
+                            <span className="flex items-center gap-2">
+                              <img 
+                                src={author.picture} 
+                                alt={author.name} 
+                                className="w-5 h-5 rounded-full object-cover inline-block"
+                              />
+                              {author.name}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-white/10 inline-flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-white/40">
+                                {author.name.charAt(0).toUpperCase()}
+                              </span>
+                              {author.name}
+                            </span>
+                          )}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* COVER IMAGE */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
+                  Cover Image
+                </label>
+                <div className="flex flex-col items-center justify-center w-full">
+                  {coverImagePreview ? (
+                    <div className="relative w-full">
+                      <div className="relative w-full aspect-video max-h-[300px] border border-slate-200 dark:border-white/10 overflow-hidden">
+                        <Image
+                          src={coverImagePreview}
+                          alt="Cover preview"
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removeCoverImage}
+                        className="absolute top-2 right-2 p-1.5 bg-rose-500/90 hover:bg-rose-600 text-white transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 dark:border-white/20 cursor-pointer hover:border-yellow/50 transition-colors bg-slate-50 dark:bg-white/5">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload size={32} className="text-slate-400 dark:text-white/30 mb-2" />
+                        <p className="mb-2 text-sm text-slate-500 dark:text-white/40">
+                          <span className="font-semibold">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-slate-400 dark:text-white/30">
+                          PNG, JPG, WebP (max 5MB)
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CONTENT */}
+          <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Content *</h2>
+
+            {/* ✅ Insert Offer toolbar */}
+            <ArticleEditorToolbar
+              getEditor={() => editorRef.current}
+              onInserted={(offer) =>
+                showToast(`Inserted offer: ${offer.title}`, 'success')
+              }
+            />
+
+            <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
+              {isEditorReady ? (
+                <CKEditor
+                  editor={ClassicEditor}
+                  config={editorConfig}
+                  data={formData.content}
+                  onReady={(editor: any) => {
+                    editorRef.current = editor;
+                  }}
+                  onChange={(event: any, editor: any) => {
+                    const data = editor.getData();
+                    setFormData({ ...formData, content: data });
+                  }}
+                />
+              ) : (
+                <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
+                  <Loader2 size={24} className="animate-spin text-yellow mr-2" />
+                  Loading editor...
+                </div>
+              )}
+            </div>
+            {isUploading && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-yellow">
+                <Loader2 size={16} className="animate-spin" />
+                Uploading image...
+              </div>
+            )}
+            <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
+              Use the editor toolbar to format text, add images, tables, and more.
+            </div>
+          </div>
+        </div>
+
+        {/* SIDEBAR */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Mobile Tabs */}
+          <div className="flex sm:hidden gap-1 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-1">
+            <button
+              onClick={() => setActiveTab('seo')}
+              className={`flex-1 py-2 text-xs font-bold transition-colors ${
+                activeTab === 'seo'
+                  ? 'bg-yellow text-slate-950'
+                  : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'
+              }`}
+            >
+              SEO
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex-1 py-2 text-xs font-bold transition-colors ${
+                activeTab === 'settings'
+                  ? 'bg-yellow text-slate-950'
+                  : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'
+              }`}
+            >
+              Settings
+            </button>
+            <button
+              onClick={() => setActiveTab('meta')}
+              className={`flex-1 py-2 text-xs font-bold transition-colors ${
+                activeTab === 'meta'
+                  ? 'bg-yellow text-slate-950'
+                  : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'
+              }`}
+            >
+              Meta
+            </button>
+          </div>
+
+          {/* SEO Analysis */}
+          <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'seo' ? 'block' : 'hidden sm:block'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <TrendingUp size={18} className="text-yellow" />
+                SEO Analysis
+              </h2>
+              {seoResults && (
+                <div className="text-right">
+                  <span className={`text-2xl font-bold ${getScoreColor(seoResults.score)}`}>
+                    {seoResults.score}/100
+                  </span>
+                  <div className={`text-xs font-medium ${getScoreColor(seoResults.score)}`}>
+                    {getScoreLabel(seoResults.score)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
+                Focus Keyword
+              </label>
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={focusKeyword}
+                  onChange={(e) => setFocusKeyword(e.target.value)}
+                  placeholder="Enter focus keyword..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+                />
+              </div>
+            </div>
+
+            {seoResults ? (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                {seoResults.checks.map((check: any, index: number) => (
+                  <div
+                    key={index}
+                    className={`flex items-start gap-2 p-2 text-sm border ${getStatusColor(check.status)}`}
+                  >
+                    {getStatusIcon(check.status)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium">{check.name}</span>
+                        <span className="text-[10px] font-mono opacity-70">{check.current}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <span className="text-[10px] opacity-80">{check.message}</span>
+                        <span className="text-[9px] opacity-50">{check.target}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-400 dark:text-white/30 text-center py-8">
+                <TrendingUp size={48} className="mx-auto mb-3 opacity-30" />
+                <p className="font-medium">Enter a focus keyword</p>
+                <p className="text-xs mt-1">Get real-time SEO analysis and score</p>
+              </div>
+            )}
+
+            {seoResults && (
+              <div className="mt-4">
+                <div className="w-full bg-slate-200 dark:bg-white/10 h-2">
+                  <div
+                    className={`h-2 transition-all duration-500 ${getScoreBg(seoResults.score)}`}
+                    style={{ width: `${seoResults.score}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex justify-between text-xs">
+                  <span className="text-slate-400 dark:text-white/30">0</span>
+                  <span className={`font-medium ${getScoreColor(seoResults.score)}`}>
+                    {getScoreLabel(seoResults.score)}
+                  </span>
+                  <span className="text-slate-400 dark:text-white/30">100</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Publish Settings */}
+          <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'settings' ? 'block' : 'hidden sm:block'}`}>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Publish Settings</h2>
+            
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/70 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-4 h-4 accent-yellow"
+                />
+                Published (Active)
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/70 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.is_boosted}
+                  onChange={(e) => setFormData({ ...formData, is_boosted: e.target.checked })}
+                  className="w-4 h-4 accent-yellow"
+                />
+                <Sparkles size={14} className="text-yellow" />
+                Featured (Boosted)
+              </label>
+            </div>
+          </div>
+
+          {/* Meta Tags + Views */}
+          <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'meta' ? 'block' : 'hidden sm:block'}`}>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <Tag size={18} className="text-yellow" />
+              Meta Tags & Settings
+            </h2>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
+                  Meta Title
+                </label>
+                <input
+                  type="text"
+                  value={formData.meta_title}
+                  onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
+                  placeholder="SEO title (leave blank to use article title)"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+                />
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
+                  {formData.meta_title.length}/150 characters
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
+                  Meta Description
+                </label>
+                <textarea
+                  value={formData.meta_description}
+                  onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
+                  rows={2}
+                  placeholder="SEO description (120-160 chars)"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors resize-y"
+                />
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
+                  {formData.meta_description.length}/160 characters
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
+                  Meta Keywords
+                </label>
+                <input
+                  type="text"
+                  value={formData.meta_keywords}
+                  onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })}
+                  placeholder="keyword1, keyword2, keyword3"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+                />
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
+                  Comma separated keywords
+                </div>
+              </div>
+
+              {/* ============================================================
+                  VIEWS INPUT
+                  ============================================================ */}
+              <div className="pt-3 border-t border-slate-200 dark:border-white/10">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5 flex items-center gap-2">
+                  <EyeIcon size={14} />
+                  Views
+                </label>
+                <input
+                  type="number"
+                  value={formData.views}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const numVal = val === '' ? 0 : parseInt(val);
+                    setFormData({ 
+                      ...formData, 
+                      views: isNaN(numVal) ? 0 : numVal 
+                    });
+                  }}
+                  placeholder="0"
+                  min="0"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+                />
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
+                  Current views: {formData.views || 0}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SEO Score Summary */}
+          {seoResults && (
+            <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 hidden sm:block">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700 dark:text-white/60">SEO Score</span>
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 flex items-center justify-center text-xl font-bold ${getScoreColor(seoResults.score)} border-2 ${getScoreBg(seoResults.score)}/20`}>
+                    {seoResults.score}
+                  </div>
+                  <span className={`text-sm font-medium ${getScoreColor(seoResults.score)}`}>
+                    {getScoreLabel(seoResults.score)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,872 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import {
+  Gift,
+  Plus,
+  RefreshCw,
+  Loader2,
+  Search,
+  X,
+  AlertCircle,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Edit,
+  Trash2,
+  Eye,
+  EyeOff,
+  Sparkles,
+  StarOff,
+  Users,
+  FolderOpen,
+  Eye as EyeIcon,
+  MousePointerClick,
+  Star,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
+
+// ============================================================
+// TYPES
+// ============================================================
+interface Deal {
+  id: number;
+  title: string;
+  slug: string;
+  content: string;
+  cover_image: string | null;
+  offer_link: string;
+  payout_amount: string;
+  rating: number;
+  withdraw_method: string;
+  verified_date: string;
+  meta_title: string;
+  meta_description: string;
+  meta_keywords: string;
+  is_active: boolean | number;
+  is_boosted: boolean | number;
+  views: number;
+  views_formatted: string;
+  views_raw: number;
+  clicks: number;
+  clicks_formatted: string;
+  clicks_raw: number;
+  category_id: number | null;
+  category_name: string | null;
+  category_slug: string | null;
+  author_id: number | null;
+  author_name: string | null;
+  author_picture: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  type: 'offers' | 'articles' | 'both';
+}
+
+interface Author {
+  id: number;
+  name: string;
+}
+
+type SortField = 'title' | 'category_name' | 'author_name' | 'rating' | 'views_raw' | 'clicks_raw' | 'created_at';
+type SortOrder = 'asc' | 'desc';
+
+// ============================================================
+// TOAST
+// ============================================================
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const colors = {
+    success: 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400',
+    error: 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400',
+    info: 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
+  };
+
+  const icons = {
+    success: <CheckCircle size={20} className="text-green-500" />,
+    error: <AlertCircle size={20} className="text-rose-500" />,
+    info: <AlertCircle size={20} className="text-blue-500" />,
+  };
+
+  return (
+    <div className={`fixed top-20 right-4 z-50 max-w-sm p-4 border ${colors[type]} flex items-start gap-3 shadow-lg`}>
+      {icons[type]}
+      <span className="text-sm font-medium flex-1">{message}</span>
+      <button onClick={onClose} className="text-slate-500 hover:text-slate-700 dark:hover:text-white">
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
+
+// ============================================================
+// NUMBER EDIT MODAL (reusable for rating + views)
+// ============================================================
+function NumberEditModal({
+  isOpen,
+  onClose,
+  title,
+  itemTitle,
+  currentValue,
+  label,
+  step,
+  max,
+  onSave,
+  loading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  itemTitle: string;
+  currentValue: number;
+  label: string;
+  step?: string;
+  max?: number;
+  onSave: (val: number) => void;
+  loading: boolean;
+}) {
+  const [value, setValue] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen) setValue(String(currentValue || 0));
+  }, [isOpen, currentValue]);
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/70 z-50" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 max-w-md w-full shadow-2xl">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
+              <button onClick={onClose} className="text-slate-500 hover:text-slate-700 dark:hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-500 dark:text-white/60 mb-4 truncate">
+              Deal: <span className="font-medium text-white">{itemTitle}</span>
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1.5">
+                {label}
+              </label>
+              <input
+                type="number"
+                step={step}
+                min="0"
+                max={max}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+              />
+              <p className="text-xs text-slate-400 mt-1">Current: {currentValue}</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors border border-slate-200 dark:border-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const num = parseFloat(value);
+                  if (!isNaN(num) && num >= 0 && (!max || num <= max)) onSave(num);
+                }}
+                disabled={loading}
+                className="px-4 py-2 text-sm font-bold bg-yellow text-slate-950 hover:bg-yellow/90 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                {loading ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ============================================================
+// MAIN PAGE
+// ============================================================
+export default function DealsPage() {
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedAuthor, setSelectedAuthor] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [authors, setAuthors] = useState<Author[]>([]);
+
+  // Modals (shared component instance)
+  const [ratingModal, setRatingModal] = useState<{ open: boolean; deal: Deal | null; saving: boolean }>({
+    open: false, deal: null, saving: false,
+  });
+  const [viewsModal, setViewsModal] = useState<{ open: boolean; deal: Deal | null; saving: boolean }>({
+    open: false, deal: null, saving: false,
+  });
+
+  const limit = 10;
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+  };
+
+  // ------------------------------------------------------------
+  // Fetch filter options (once)
+  // ------------------------------------------------------------
+  useEffect(() => {
+    (async () => {
+      try {
+        const catRes = await fetch('/api/admin/categories');
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          const filtered = (catData.categories || []).filter(
+            (cat: Category) => cat.type === 'offers' || cat.type === 'both'
+          );
+          setCategories(filtered);
+        }
+        const authRes = await fetch('/api/admin/authors');
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          setAuthors(authData.authors || []);
+        }
+      } catch (e) {
+        console.error('Error fetching filter options:', e);
+      }
+    })();
+  }, []);
+
+  // ------------------------------------------------------------
+  // Fetch deals
+  // ------------------------------------------------------------
+  const fetchDeals = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('limit', String(limit));
+      if (search) params.set('search', search);
+      if (selectedCategory !== 'all') params.set('category_id', selectedCategory);
+      if (selectedAuthor !== 'all') params.set('author_id', selectedAuthor);
+      params.set('sort', sortField);
+      params.set('order', sortOrder);
+
+      const res = await fetch(`/api/admin/deals?${params.toString()}`, { cache: 'no-store' });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to fetch deals');
+      }
+
+      const data = await res.json();
+      setDeals(data.deals || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalItems(data.total || 0);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to fetch deals', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDeals();
+  }, [page, search, selectedCategory, selectedAuthor, sortField, sortOrder]);
+
+  // ------------------------------------------------------------
+  // Sort
+  // ------------------------------------------------------------
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown size={14} className="opacity-40" />;
+    return sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />;
+  };
+
+  const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+    <button
+      onClick={() => handleSort(field)}
+      className="flex items-center gap-1 text-left text-xs font-semibold text-slate-500 dark:text-white/40 uppercase tracking-wider hover:text-slate-700 dark:hover:text-white transition-colors"
+    >
+      {children}
+      {getSortIcon(field)}
+    </button>
+  );
+
+  // ------------------------------------------------------------
+  // Toggle active
+  // ------------------------------------------------------------
+  const toggleActive = async (deal: Deal) => {
+    setTogglingId(deal.id);
+    try {
+      const newStatus = (deal.is_active === 1 || deal.is_active === true) ? 0 : 1;
+      const formData = new FormData();
+      formData.append('id', String(deal.id));
+      formData.append('is_active', String(newStatus));
+
+      const res = await fetch('/api/admin/deals', { method: 'PUT', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to toggle active status');
+
+      showToast(`Deal ${newStatus === 1 ? 'activated' : 'deactivated'} successfully!`, 'success');
+      await fetchDeals();
+    } catch (err: any) {
+      showToast(err.message || 'Error toggling active status', 'error');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  // ------------------------------------------------------------
+  // Toggle boost
+  // ------------------------------------------------------------
+  const toggleBoost = async (deal: Deal) => {
+    setTogglingId(deal.id);
+    try {
+      const newStatus = (deal.is_boosted === 1 || deal.is_boosted === true) ? 0 : 1;
+      const formData = new FormData();
+      formData.append('id', String(deal.id));
+      formData.append('is_boosted', String(newStatus));
+
+      const res = await fetch('/api/admin/deals', { method: 'PUT', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to toggle boost status');
+
+      showToast(`Deal ${newStatus === 1 ? 'featured' : 'unfeatured'} successfully!`, 'success');
+      await fetchDeals();
+    } catch (err: any) {
+      showToast(err.message || 'Error toggling boost status', 'error');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  // ------------------------------------------------------------
+  // Update rating
+  // ------------------------------------------------------------
+  const handleUpdateRating = async (rating: number) => {
+    if (!ratingModal.deal) return;
+    setRatingModal((m) => ({ ...m, saving: true }));
+    try {
+      const formData = new FormData();
+      formData.append('id', String(ratingModal.deal.id));
+      formData.append('rating', String(rating));
+
+      const res = await fetch('/api/admin/deals', { method: 'PUT', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update rating');
+
+      showToast(`Rating updated to ${rating} ★ successfully!`, 'success');
+      setRatingModal({ open: false, deal: null, saving: false });
+      await fetchDeals();
+    } catch (err: any) {
+      showToast(err.message || 'Error updating rating', 'error');
+      setRatingModal((m) => ({ ...m, saving: false }));
+    }
+  };
+
+  // ------------------------------------------------------------
+  // Update views
+  // ------------------------------------------------------------
+  const handleUpdateViews = async (views: number) => {
+    if (!viewsModal.deal) return;
+    setViewsModal((m) => ({ ...m, saving: true }));
+    try {
+      const formData = new FormData();
+      formData.append('id', String(viewsModal.deal.id));
+      formData.append('views', String(views));
+
+      const res = await fetch('/api/admin/deals', { method: 'PUT', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update views');
+
+      showToast(`Views updated to ${views} successfully!`, 'success');
+      setViewsModal({ open: false, deal: null, saving: false });
+      await fetchDeals();
+    } catch (err: any) {
+      showToast(err.message || 'Error updating views', 'error');
+      setViewsModal((m) => ({ ...m, saving: false }));
+    }
+  };
+
+  // ------------------------------------------------------------
+  // Delete
+  // ------------------------------------------------------------
+  const handleDelete = async (id: number) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/deals', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete');
+      }
+      showToast('Deal deleted successfully!', 'success');
+      setDeleteModalOpen(false);
+      setDeleteTarget(null);
+      fetchDeals();
+    } catch (err: any) {
+      showToast(err.message || 'Error deleting deal', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ------------------------------------------------------------
+  // Pagination helpers
+  // ------------------------------------------------------------
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let startPage = 1;
+    let endPage = totalPages;
+
+    if (totalPages > maxVisible) {
+      const half = Math.floor(maxVisible / 2);
+      if (page <= half + 1) {
+        startPage = 1;
+        endPage = maxVisible;
+      } else if (page >= totalPages - half) {
+        startPage = totalPages - maxVisible + 1;
+        endPage = totalPages;
+      } else {
+        startPage = page - half;
+        endPage = page + half;
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) pages.push(i);
+    return pages;
+  };
+
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+  return (
+    <div className="space-y-6 p-4 sm:p-6">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Rating Modal */}
+      <NumberEditModal
+        isOpen={ratingModal.open}
+        onClose={() => setRatingModal({ open: false, deal: null, saving: false })}
+        title="Edit Rating"
+        itemTitle={ratingModal.deal?.title || ''}
+        currentValue={ratingModal.deal?.rating || 0}
+        label="Rating (1.0 - 5.0)"
+        step="0.1"
+        max={5}
+        onSave={handleUpdateRating}
+        loading={ratingModal.saving}
+      />
+
+      {/* Views Modal */}
+      <NumberEditModal
+        isOpen={viewsModal.open}
+        onClose={() => setViewsModal({ open: false, deal: null, saving: false })}
+        title="Edit Views"
+        itemTitle={viewsModal.deal?.title || ''}
+        currentValue={viewsModal.deal?.views_raw || 0}
+        label="Views Count"
+        onSave={handleUpdateViews}
+        loading={viewsModal.saving}
+      />
+
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Gift size={24} className="text-yellow" />
+            Deals
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
+            Total: <span className="font-bold">{totalItems}</span> deals
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <Link
+            href="/admin/deals/new"
+            className="flex items-center gap-2 px-4 py-2 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors"
+          >
+            <Plus size={16} />
+            New Deal
+          </Link>
+          <button
+            onClick={fetchDeals}
+            className="p-2 text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+          >
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {/* FILTERS */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="relative flex-1 max-w-md w-full">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search deals..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
+          />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); setPage(1); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        <div className="relative min-w-[160px] w-full sm:w-auto">
+          <select
+            value={selectedCategory}
+            onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
+            className="w-full px-3 py-2.5 pr-10 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm appearance-none"
+          >
+            <option value="all">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={String(cat.id)}>
+                {cat.name} {cat.type === 'both' ? '(Both)' : ''}
+              </option>
+            ))}
+          </select>
+          <FolderOpen size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+
+        <div className="relative min-w-[160px] w-full sm:w-auto">
+          <select
+            value={selectedAuthor}
+            onChange={(e) => { setSelectedAuthor(e.target.value); setPage(1); }}
+            className="w-full px-3 py-2.5 pr-10 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm appearance-none"
+          >
+            <option value="all">All Authors</option>
+            {authors.map((a) => (
+              <option key={a.id} value={String(a.id)}>{a.name}</option>
+            ))}
+          </select>
+          <Users size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+
+        {(selectedCategory !== 'all' || selectedAuthor !== 'all' || search) && (
+          <button
+            onClick={() => {
+              setSelectedCategory('all');
+              setSelectedAuthor('all');
+              setSearch('');
+              setPage(1);
+            }}
+            className="px-3 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+
+      {/* TABLE */}
+      <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-x-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={32} className="animate-spin text-yellow" />
+          </div>
+        ) : deals.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-white/40">
+            <Gift size={48} className="mb-3 opacity-30" />
+            <p className="text-sm font-medium text-slate-600 dark:text-white/60">
+              {search || selectedCategory !== 'all' || selectedAuthor !== 'all'
+                ? 'No deals found matching your filters'
+                : 'No deals yet'}
+            </p>
+            {!search && selectedCategory === 'all' && selectedAuthor === 'all' && (
+              <Link
+                href="/admin/deals/new"
+                className="mt-4 px-4 py-2 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors"
+              >
+                Create Deal
+              </Link>
+            )}
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                <th className="px-4 py-3 text-left"><SortableHeader field="title">Title</SortableHeader></th>
+                <th className="px-4 py-3 text-left hidden md:table-cell"><SortableHeader field="category_name">Category</SortableHeader></th>
+                <th className="px-4 py-3 text-left hidden lg:table-cell"><SortableHeader field="author_name">Author</SortableHeader></th>
+                <th className="px-4 py-3 text-left hidden xl:table-cell"><SortableHeader field="rating">Rating</SortableHeader></th>
+                <th className="px-4 py-3 text-left hidden xl:table-cell"><SortableHeader field="views_raw">Views</SortableHeader></th>
+                <th className="px-4 py-3 text-left hidden 2xl:table-cell"><SortableHeader field="clicks_raw">Clicks</SortableHeader></th>
+                <th className="px-4 py-3 text-left hidden sm:table-cell"><SortableHeader field="created_at">Created</SortableHeader></th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 dark:text-white/40 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-white/5">
+              {deals.map((deal) => (
+                <tr key={deal.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {deal.cover_image && (
+                        <img src={deal.cover_image} alt={deal.title} className="w-12 h-12 object-cover border border-slate-200 dark:border-white/10" />
+                      )}
+                      <div>
+                        <Link
+                          href={`/deals/${deal.slug}`}
+                          target="_blank"
+                          className="font-medium text-slate-900 dark:text-white truncate max-w-[200px] block hover:text-yellow hover:underline transition-colors cursor-pointer"
+                        >
+                          {deal.title}
+                        </Link>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border ${
+                            deal.is_active === 1 || deal.is_active === true
+                              ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                              : 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+                          }`}>
+                            {deal.is_active === 1 || deal.is_active === true ? 'Active' : 'Inactive'}
+                          </span>
+                          {(deal.is_boosted === 1 || deal.is_boosted === true) && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold text-yellow uppercase tracking-wider border border-yellow/30 bg-yellow/10">
+                              <Sparkles size={10} />
+                              Featured
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <span className="text-xs text-slate-500 dark:text-white/40">{deal.category_name || 'Uncategorized'}</span>
+                  </td>
+
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    <span className="text-xs text-slate-500 dark:text-white/40">{deal.author_name || 'Unknown'}</span>
+                  </td>
+
+                  <td className="px-4 py-3 hidden xl:table-cell">
+                    <button
+                      onClick={() => setRatingModal({ open: true, deal, saving: false })}
+                      className="text-xs text-slate-500 dark:text-white/40 font-medium hover:text-yellow hover:underline transition-colors flex items-center gap-1"
+                    >
+                      <Star size={12} className="text-yellow" />
+                      {deal.rating || '0.0'}
+                    </button>
+                  </td>
+
+                  <td className="px-4 py-3 hidden xl:table-cell">
+                    <button
+                      onClick={() => setViewsModal({ open: true, deal, saving: false })}
+                      className="text-xs text-slate-500 dark:text-white/40 font-medium hover:text-yellow hover:underline transition-colors flex items-center gap-1"
+                    >
+                      <EyeIcon size={12} />
+                      {deal.views_formatted || '0'}
+                    </button>
+                  </td>
+
+                  <td className="px-4 py-3 hidden 2xl:table-cell">
+                    <span className="text-xs text-slate-500 dark:text-white/40 flex items-center gap-1">
+                      <MousePointerClick size={12} />
+                      {deal.clicks_formatted || '0'}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <span className="text-xs text-slate-400 dark:text-white/30">{formatDate(deal.created_at)}</span>
+                  </td>
+
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => toggleActive(deal)}
+                        disabled={togglingId === deal.id}
+                        className={`p-2 transition-colors ${
+                          deal.is_active === 1 || deal.is_active === true
+                            ? 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                        }`}
+                        title={deal.is_active === 1 || deal.is_active === true ? 'Deactivate' : 'Activate'}
+                      >
+                        {(deal.is_active === 1 || deal.is_active === true) ? <Eye size={16} /> : <EyeOff size={16} />}
+                      </button>
+
+                      <button
+                        onClick={() => toggleBoost(deal)}
+                        disabled={togglingId === deal.id}
+                        className={`p-2 transition-colors ${
+                          deal.is_boosted === 1 || deal.is_boosted === true
+                            ? 'text-yellow hover:text-yellow/80 hover:bg-yellow/10'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                        }`}
+                        title={deal.is_boosted === 1 || deal.is_boosted === true ? 'Remove Featured' : 'Make Featured'}
+                      >
+                        {(deal.is_boosted === 1 || deal.is_boosted === true) ? <Sparkles size={16} /> : <StarOff size={16} />}
+                      </button>
+
+                      <Link
+                        href={`/admin/deals/edit/${deal.id}`}
+                        className="p-2 text-slate-500 hover:text-yellow hover:bg-yellow/10 transition-colors"
+                        title="Edit deal"
+                      >
+                        <Edit size={16} />
+                      </Link>
+
+                      <button
+                        onClick={() => { setDeleteTarget(deal.id); setDeleteModalOpen(true); }}
+                        className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                        title="Delete deal"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* PAGINATION */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10 pt-4">
+          <p className="text-xs text-slate-500 dark:text-white/30 order-2 sm:order-1">
+            Showing {deals.length} of {totalItems} deals
+          </p>
+          <div className="flex items-center gap-1 order-1 sm:order-2 flex-wrap justify-center">
+            <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              className="p-2 text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronsLeft size={16} />
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            <div className="flex items-center gap-1">
+              {getPageNumbers().map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={`min-w-[32px] h-8 px-2 text-xs font-medium transition-colors ${
+                    page === pageNum
+                      ? 'bg-yellow text-slate-950'
+                      : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-2 text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+              className="p-2 text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronsRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE MODAL */}
+      {deleteModalOpen && deleteTarget && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-50" onClick={() => setDeleteModalOpen(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 max-w-md w-full shadow-2xl">
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                  <Trash2 size={28} className="text-rose-500" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Delete Deal</h3>
+                <p className="text-sm text-slate-500 dark:text-white/60 mb-6">
+                  Are you sure you want to delete this deal? This action cannot be undone.
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => setDeleteModalOpen(false)}
+                    className="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors border border-slate-200 dark:border-white/10"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleDelete(deleteTarget)}
+                    disabled={actionLoading}
+                    className="px-6 py-2.5 text-sm font-bold text-white bg-rose-500 hover:bg-rose-600 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                    {actionLoading ? 'Deleting...' : 'Delete Deal'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,373 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --color-navy: #0A192F;
+  --color-yellow: #FFD23F;
+  --color-yellow-hover: #E0A900;
+  --color-light-gray: #F8FAFC;
+  --color-border-gray: #E2E8F0;
+  --color-gray-text: #475569;
+}
+
+.loader {
+  width: 40px;
+  aspect-ratio: 1.154;
+  --_g: no-repeat radial-gradient(farthest-side, currentColor 90%, #0000);
+  background: 
+    var(--_g) 50%  0,
+    var(--_g) 0    100%,
+    var(--_g) 100% 100%;
+  background-size: 35% calc(35%*1.154);
+  animation: l16 1s infinite;
+}
+
+@keyframes l16 { 
+    50%, 100% { background-position: 100% 100%, 50% 0, 0 100%; } 
+}
+
+/* ============================================================
+   CKEditor Dark Mode Support
+   ============================================================ */
+.ck.ck-editor__editable_inline {
+  min-height: 300px;
+  max-height: 500px;
+}
+
+.dark .ck.ck-editor__editable_inline {
+  background-color: #1a1a2e;
+  color: #e0e0e0;
+  border-color: #334155;
+}
+
+.dark .ck.ck-toolbar {
+  background-color: #1a1a2e;
+  border-color: #334155;
+}
+
+.dark .ck.ck-button {
+  color: #e0e0e0;
+}
+
+.dark .ck.ck-button:hover {
+  background-color: #2d2d4e;
+}
+
+.dark .ck.ck-button.ck-on {
+  background-color: #fcf300;
+  color: #0f0e47;
+}
+
+.ck.ck-editor {
+  width: 100% !important;
+}
+
+/* ============================================================
+   RESPONSIVE ARTICLE CONTENT
+   Prevents tables, images, pre blocks, and long text from
+   pushing the whole page wider than the viewport on mobile.
+   ============================================================ */
+
+.article-body-custom {
+  max-width: 100%;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.article-body-custom img,
+.article-body-custom video,
+.article-body-custom iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+.article-body-custom pre,
+.article-body-custom code {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.article-body-custom a {
+  word-break: break-word;
+}
+
+/* ============================================================
+   TABLES INSIDE ARTICLE / OFFER CONTENT
+   - Desktop: normal full-width table (no scroll, no blank gap)
+   - Mobile:  scrolls inside its own box
+   ============================================================ */
+
+/* Desktop — normal table */
+.article-body-custom table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2.5rem 0;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  table-layout: auto;
+}
+
+.article-body-custom table thead {
+  background-color: #0A192F;
+  color: #ffffff;
+}
+
+.article-body-custom table th {
+  padding: 14px 18px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  border: none;
+}
+
+.article-body-custom table tr {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.article-body-custom table tr:last-child {
+  border-bottom: none;
+}
+
+.article-body-custom table tr:nth-child(even) {
+  background-color: rgba(248, 250, 252, 0.6);
+}
+
+.article-body-custom table tr:hover {
+  background-color: rgba(248, 250, 252, 0.4);
+}
+
+.article-body-custom table td {
+  padding: 14px 18px;
+  font-size: 15px;
+  color: #475569;
+  font-weight: 600;
+  border: none;
+  word-break: break-word;
+}
+
+/* Mobile — make it scrollable inside its own box */
+@media (max-width: 640px) {
+  .article-body-custom table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 13px;
+  }
+
+  .article-body-custom table th,
+  .article-body-custom table td {
+    padding: 10px 12px;
+    min-width: 100px;
+    white-space: nowrap;
+  }
+
+  .article-body-custom table::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .article-body-custom table::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+  }
+}
+
+
+/* ============================================================
+   MODERN DASHBOARD STYLING & TOOLTIPS
+   ============================================================ */
+
+/* Main glass/gradient card wrapper */
+.modern-chart-card {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.dark .modern-chart-card {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+.modern-chart-card:hover {
+  border-color: var(--card-accent, #3b82f6);
+  box-shadow: 0 10px 30px -10px var(--card-accent-glow, rgba(59, 130, 246, 0.15));
+}
+
+/* Icon Header Chip */
+.chart-icon-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(var(--card-accent-rgb, 59, 130, 246), 0.1);
+  border: 1px solid rgba(var(--card-accent-rgb, 59, 130, 246), 0.2);
+}
+
+/* Summary Totals Badge */
+.chart-total-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.dark .chart-total-pill {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+/* Chart Surface Container */
+.chart-surface {
+  width: 100%;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.5) 0%, rgba(255, 255, 255, 0) 100%);
+  border: 1px solid #f1f5f9;
+}
+
+.dark .chart-surface {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.3) 0%, rgba(15, 23, 42, 0) 100%);
+  border-color: #1e293b;
+}
+
+/* Modern Tooltip styling */
+.modern-tooltip {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0px;
+  padding: 10px 14px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  color: #f8fafc;
+  min-width: 150px;
+}
+
+.modern-tooltip-date {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 4px;
+}
+
+.modern-tooltip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.modern-tooltip-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.modern-tooltip-value {
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.modern-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+}
+
+/* Segmented Toggle Control */
+.segmented-control {
+  display: inline-flex;
+  padding: 2px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.dark .segmented-control {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.segmented-control button {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.segmented-control button.active {
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dark .segmented-control button.active {
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+/* Distribution Breakdown Bars */
+.distribution-card {
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: border-color 0.2s ease;
+}
+
+.dark .distribution-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.distribution-card:hover {
+  border-color: var(--row-accent, #3b82f6);
+}
+
+.distribution-track {
+  margin-top: 8px;
+  width: 100%;
+  height: 4px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.dark .distribution-track {
+  background: #0f172a;
+}
+
+.distribution-fill {
+  height: 100%;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Donut Center Typography */
+.donut-center-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
