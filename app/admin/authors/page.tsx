@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Loader2,
   Search,
+  Check,
   X,
   Clock,
   Save,
@@ -29,44 +30,86 @@ import {
   Trash2 as TrashIcon,
   Camera,
   User as UserIcon,
+  Tag, // ✅ Added Tag icon for Deals
 } from 'lucide-react';
 
 // ============================================================
-// TOAST COMPONENT
+// TOAST
 // ============================================================
-
-function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) {
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info' | 'warning'; onClose: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onClose, 5000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const colors = {
-    success: 'bg-green-500/10 border-green-500/20 text-green-600',
-    error: 'bg-rose-500/10 border-rose-500/20 text-rose-600',
-    info: 'bg-blue-500/10 border-blue-500/20 text-blue-600',
+  const styles = {
+    success: {
+      bg: 'bg-[#2ecc71]',
+      bar: 'bg-emerald-700/30',
+      title: 'Success!',
+      iconBg: 'bg-white text-[#2ecc71]',
+      icon: <Check size={18} strokeWidth={3} />,
+    },
+    error: {
+      bg: 'bg-[#e74c3c]',
+      bar: 'bg-rose-900/30',
+      title: 'Error!',
+      iconBg: 'bg-white text-[#e74c3c]',
+      icon: <X size={18} strokeWidth={3} />,
+    },
+    info: {
+      bg: 'bg-[#3498db]',
+      bar: 'bg-blue-900/30',
+      title: 'Info!',
+      iconBg: 'bg-white text-[#3498db]',
+      icon: <span className="font-bold text-lg italic">i</span>,
+    },
+    warning: {
+      bg: 'bg-[#f1c40f]',
+      bar: 'bg-amber-950/20',
+      title: 'Warning!',
+      iconBg: 'bg-white text-[#f1c40f]',
+      icon: <span className="font-bold text-lg">!</span>,
+    },
   };
 
-  const icons = {
-    success: <CheckCircle2 size={20} className="text-green-500" />,
-    error: <AlertCircle size={20} className="text-rose-500" />,
-    info: <AlertCircle size={20} className="text-blue-500" />,
-  };
+  const current = styles[type] || styles.info;
 
   return (
-    <div className={`fixed top-20 right-4 z-50 max-w-sm p-4 border ${colors[type]} flex items-start gap-3 shadow-lg`}>
-      {icons[type]}
-      <span className="text-sm font-medium flex-1">{message}</span>
-      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
-        <X size={16} />
-      </button>
-    </div>
+    <>
+      <style jsx>{`
+        @keyframes shrinkBar {
+          0% { width: 100%; }
+          100% { width: 0%; }
+        }
+        .animate-shrink {
+          animation: shrinkBar 5s linear forwards;
+        }
+      `}</style>
+      <div className={`fixed top-20 right-6 z-50 w-full max-w-md ${current.bg} text-white rounded-none shadow-2xl overflow-hidden flex flex-col`}>
+        <div className="p-4 flex items-start gap-4 relative">
+          <div className={`w-9 h-9 rounded-full ${current.iconBg} flex items-center justify-center shrink-0 shadow-sm mt-0.5`}>
+            {current.icon}
+          </div>
+          <div className="flex-1 pr-6">
+            <h4 className="font-bold text-base tracking-wide mb-0.5">{current.title}</h4>
+            <p className="text-sm opacity-95 leading-relaxed">{message}</p>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors p-1"
+            aria-label="Close"
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+        <div className={`w-full h-1.5 ${current.bar} relative overflow-hidden`}>
+          <div className="absolute top-0 left-0 bottom-0 bg-white/50 animate-shrink" />
+        </div>
+      </div>
+    </>
   );
 }
-
-// ============================================================
-// FORMAT TIME AGO
-// ============================================================
 
 function formatTimeAgo(date: string | Date): string {
   const now = new Date();
@@ -90,7 +133,6 @@ function formatTimeAgo(date: string | Date): string {
 // ============================================================
 // MAIN PAGE
 // ============================================================
-
 export default function AdminAuthorsPage() {
   const [authors, setAuthors] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -99,15 +141,10 @@ export default function AdminAuthorsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedAuthor, setSelectedAuthor] = useState<any | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    bio: '',
-    is_active: true,
-  });
+  const [formData, setFormData] = useState({ name: '', bio: '', is_active: true });
   const [pictureFile, setPictureFile] = useState<File | null>(null);
   const [picturePreview, setPicturePreview] = useState<string | null>(null);
   const [removePicture, setRemovePicture] = useState(false);
@@ -117,14 +154,12 @@ export default function AdminAuthorsPage() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
   };
 
-  // Fetch authors
   const fetchAuthors = async () => {
     setLoading(true);
     try {
@@ -334,7 +369,6 @@ export default function AdminAuthorsPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      {/* Toast */}
       {toast && (
         <Toast
           message={toast.message}
@@ -409,6 +443,10 @@ export default function AdminAuthorsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Offers
                 </th>
+                {/* ✅ Added Deals Column */}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Deals
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Status
                 </th>
@@ -462,6 +500,16 @@ export default function AdminAuthorsPage() {
                       >
                         <Gift size={14} className="text-slate-400" />
                         <span className="font-semibold">{author.offer_count || 0}</span>
+                      </Link>
+                    </td>
+                    {/* ✅ Added Deals Data Cell */}
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/admin/deals?author=${author.id}`}
+                        className="flex items-center gap-1.5 text-sm text-slate-700 hover:text-yellow transition-colors"
+                      >
+                        <Tag size={14} className="text-slate-400" />
+                        <span className="font-semibold">{author.deal_count || 0}</span>
                       </Link>
                     </td>
                     <td className="px-4 py-3">
@@ -572,7 +620,7 @@ export default function AdminAuthorsPage() {
       )}
 
       {/* ============================================================
-          ADD/EDIT MODAL - COOL IMAGE UPLOAD
+          ADD/EDIT MODAL
           ============================================================ */}
       {modalOpen && (
         <>
@@ -598,7 +646,6 @@ export default function AdminAuthorsPage() {
                   </div>
                 )}
 
-                {/* Name */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                     Name *
@@ -615,7 +662,6 @@ export default function AdminAuthorsPage() {
                   </div>
                 </div>
 
-                {/* Bio */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                     Bio
@@ -628,15 +674,11 @@ export default function AdminAuthorsPage() {
                   />
                 </div>
 
-                {/* ============================================================
-                    COOL IMAGE UPLOAD SECTION
-                    ============================================================ */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                     Profile Picture
                   </label>
                   
-                  {/* Image Preview Area */}
                   <div className="flex items-center gap-4">
                     <div className="relative w-20 h-20 border-2 border-dashed border-slate-300 hover:border-yellow transition-colors flex items-center justify-center bg-slate-50 overflow-hidden group">
                       {picturePreview ? (
@@ -660,7 +702,6 @@ export default function AdminAuthorsPage() {
                     </div>
 
                     <div className="flex-1">
-                      {/* Upload Button */}
                       <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-sm font-medium cursor-pointer transition-colors">
                         <Upload size={16} />
                         Choose Image
@@ -677,7 +718,6 @@ export default function AdminAuthorsPage() {
                         PNG, JPG, WebP • Max 2MB
                       </p>
 
-                      {/* Remove Picture Button */}
                       {modalMode === 'edit' && selectedAuthor?.picture && !removePicture && (
                         <button
                           type="button"
@@ -698,7 +738,6 @@ export default function AdminAuthorsPage() {
                   </div>
                 </div>
 
-                {/* Active Status */}
                 <div className="flex items-center gap-2 pt-2">
                   <input
                     type="checkbox"

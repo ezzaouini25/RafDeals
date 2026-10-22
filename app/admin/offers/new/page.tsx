@@ -1,65 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  ArrowLeft,
-  Save,
-  Loader2,
-  X,
-  AlertCircle,
-  CheckCircle,
-  Image as ImageIcon,
-  Trash2,
-  Sparkles,
-  FileText,
-  Tag,
-  Search,
-  TrendingUp,
-  AlertTriangle,
-  Check,
-  Circle,
-  CircleAlert,
-  CircleCheck,
-  Eye,
-  EyeOff,
-  Upload,
-  Gift,
-  Link as LinkIcon,
-  DollarSign,
-  Star,
-  Calendar,
-  CreditCard,
-  User,
+  ArrowLeft, Save, Loader2, X, AlertCircle, CheckCircle, Trash2, Sparkles,
+  FileText, Tag, Search, TrendingUp, AlertTriangle, Check, Circle, CircleAlert,
+  CircleCheck, Eye, EyeOff, Upload, Gift, Link as LinkIcon, DollarSign,
+  Star, Calendar, CreditCard, User, Image as ImageIcon,
 } from 'lucide-react';
 
 import CountrySelect from '@/components/ui/CountrySelect';
 
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import {
-  ClassicEditor,
-  Essentials,
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
-  Heading,
-  List,
-  BlockQuote,
-  Link as CKLink,
-  Image as CKImage,
-  ImageToolbar,
-  ImageCaption,
-  ImageStyle,
-  ImageInsert,
-  Table,
-  TableToolbar,
-  Alignment,
-  Undo,
-  RemoveFormat,
-  Paragraph,
+  ClassicEditor, Essentials, Bold, Italic, Underline, Strikethrough, Heading,
+  List, BlockQuote, Link as CKLink, Image as CKImage, ImageToolbar, ImageCaption,
+  ImageStyle, ImageInsert, Table, TableToolbar, Alignment, Undo, RemoveFormat, Paragraph,
 } from 'ckeditor5';
 import 'ckeditor5/ckeditor5.css';
 
@@ -68,18 +26,9 @@ import readingTime from 'reading-time';
 
 // ✅ Payout label options (pay_name)
 const PAY_NAME_OPTIONS = [
-  'Earning Potential',
-  'Signup Bonus',
-  'Loan Amount',
-  'Coverage Amount',
-  'Price',
-  'Discount',
-  'Sale Price',
-  'Cashback',
-  'Subscription Price',
-  'Trial Offer',
-  'Course Price',
-  'Offer Value',
+  'Earning Potential', 'Signup Bonus', 'Loan Amount', 'Coverage Amount',
+  'Price', 'Discount', 'Sale Price', 'Cashback', 'Subscription Price',
+  'Trial Offer', 'Course Price', 'Offer Value',
 ];
 
 // ============================================================
@@ -159,27 +108,11 @@ function CustomUploadAdapterPlugin(editor: any) {
 function analyzeSEO(content: string, focusKeyword: string, title: string, metaDescription: string, metaKeywords: string) {
   const results = {
     score: 0,
-    checks: [] as {
-      name: string;
-      passed: boolean;
-      status: 'success' | 'warning' | 'error';
-      message: string;
-      icon: any;
-      current: number | string;
-      target: string;
-    }[],
+    checks: [] as { name: string; passed: boolean; status: 'success' | 'warning' | 'error'; message: string; icon: any; current: number | string; target: string; }[],
   };
 
   if (!focusKeyword) {
-    results.checks.push({
-      name: 'Focus Keyword',
-      passed: false,
-      status: 'error',
-      message: 'Enter a focus keyword for SEO analysis',
-      icon: AlertTriangle,
-      current: '—',
-      target: 'Enter keyword',
-    });
+    results.checks.push({ name: 'Focus Keyword', passed: false, status: 'error', message: 'Enter a focus keyword for SEO analysis', icon: AlertTriangle, current: '—', target: 'Enter keyword' });
     return results;
   }
 
@@ -191,89 +124,33 @@ function analyzeSEO(content: string, focusKeyword: string, title: string, metaDe
   const density = wordCount > 0 ? (keywordCount / wordCount) * 100 : 0;
 
   const keywordInTitle = title.toLowerCase().includes(focusKeyword.toLowerCase());
-  results.checks.push({
-    name: 'Keyword in Title',
-    passed: keywordInTitle,
-    status: keywordInTitle ? 'success' : 'error',
-    message: keywordInTitle ? 'Keyword found in title' : 'Add keyword to title',
-    icon: keywordInTitle ? Check : X,
-    current: keywordInTitle ? 'Found' : 'Not found',
-    target: 'Must include keyword',
-  });
+  results.checks.push({ name: 'Keyword in Title', passed: keywordInTitle, status: keywordInTitle ? 'success' : 'error', message: keywordInTitle ? 'Keyword found in title' : 'Add keyword to title', icon: keywordInTitle ? Check : X, current: keywordInTitle ? 'Found' : 'Not found', target: 'Must include keyword' });
   if (keywordInTitle) results.score += 15;
 
   const keywordInMeta = metaDescription?.toLowerCase().includes(focusKeyword.toLowerCase()) || false;
-  results.checks.push({
-    name: 'Keyword in Meta Description',
-    passed: keywordInMeta,
-    status: keywordInMeta ? 'success' : 'error',
-    message: keywordInMeta ? 'Keyword found in meta description' : 'Add keyword to meta description',
-    icon: keywordInMeta ? Check : X,
-    current: keywordInMeta ? 'Found' : 'Not found',
-    target: 'Must include keyword',
-  });
+  results.checks.push({ name: 'Keyword in Meta Description', passed: keywordInMeta, status: keywordInMeta ? 'success' : 'error', message: keywordInMeta ? 'Keyword found in meta description' : 'Add keyword to meta description', icon: keywordInMeta ? Check : X, current: keywordInMeta ? 'Found' : 'Not found', target: 'Must include keyword' });
   if (keywordInMeta) results.score += 15;
 
   const titleLength = title.length;
   const titleStatus = titleLength >= 30 && titleLength <= 60 ? 'success' : titleLength > 60 ? 'error' : 'warning';
-  results.checks.push({
-    name: 'Title Length',
-    passed: titleStatus === 'success',
-    status: titleStatus,
-    message: titleStatus === 'success' ? `${titleLength} characters (optimal)` : titleLength > 60 ? `${titleLength} characters (too long)` : `${titleLength} characters (too short)`,
-    icon: titleStatus === 'success' ? Check : titleStatus === 'warning' ? CircleAlert : X,
-    current: `${titleLength} chars`,
-    target: '30-60 characters',
-  });
+  results.checks.push({ name: 'Title Length', passed: titleStatus === 'success', status: titleStatus, message: titleStatus === 'success' ? `${titleLength} characters (optimal)` : titleLength > 60 ? `${titleLength} characters (too long)` : `${titleLength} characters (too short)`, icon: titleStatus === 'success' ? Check : titleStatus === 'warning' ? CircleAlert : X, current: `${titleLength} chars`, target: '30-60 characters' });
   if (titleStatus === 'success') results.score += 10;
 
   const metaLength = metaDescription?.length || 0;
   const metaStatus = metaLength >= 120 && metaLength <= 160 ? 'success' : metaLength > 160 ? 'error' : 'warning';
-  results.checks.push({
-    name: 'Meta Description Length',
-    passed: metaStatus === 'success',
-    status: metaStatus,
-    message: metaStatus === 'success' ? `${metaLength} characters (optimal)` : metaLength > 160 ? `${metaLength} characters (too long)` : `${metaLength} characters (too short)`,
-    icon: metaStatus === 'success' ? Check : metaStatus === 'warning' ? CircleAlert : X,
-    current: `${metaLength} chars`,
-    target: '120-160 characters',
-  });
+  results.checks.push({ name: 'Meta Description Length', passed: metaStatus === 'success', status: metaStatus, message: metaStatus === 'success' ? `${metaLength} characters (optimal)` : metaLength > 160 ? `${metaLength} characters (too long)` : `${metaLength} characters (too short)`, icon: metaStatus === 'success' ? Check : metaStatus === 'warning' ? CircleAlert : X, current: `${metaLength} chars`, target: '120-160 characters' });
   if (metaStatus === 'success') results.score += 10;
 
   const contentStatus = wordCount >= 600 ? 'success' : 'warning';
-  results.checks.push({
-    name: 'Content Length',
-    passed: contentStatus === 'success',
-    status: contentStatus,
-    message: contentStatus === 'success' ? `${wordCount} words (good)` : `${wordCount} words (add more content)`,
-    icon: contentStatus === 'success' ? Check : CircleAlert,
-    current: `${wordCount} words`,
-    target: '600+ words',
-  });
+  results.checks.push({ name: 'Content Length', passed: contentStatus === 'success', status: contentStatus, message: contentStatus === 'success' ? `${wordCount} words (good)` : `${wordCount} words (add more content)`, icon: contentStatus === 'success' ? Check : CircleAlert, current: `${wordCount} words`, target: '600+ words' });
   if (contentStatus === 'success') results.score += 15;
 
   const densityStatus = density >= 1 && density <= 3 ? 'success' : density > 3 ? 'error' : 'warning';
-  results.checks.push({
-    name: 'Keyword Density',
-    passed: densityStatus === 'success',
-    status: densityStatus,
-    message: densityStatus === 'success' ? `${density.toFixed(1)}% (optimal)` : density > 3 ? `${density.toFixed(1)}% (too high)` : `${density.toFixed(1)}% (too low)`,
-    icon: densityStatus === 'success' ? Check : densityStatus === 'warning' ? CircleAlert : X,
-    current: `${density.toFixed(1)}%`,
-    target: '1-3%',
-  });
+  results.checks.push({ name: 'Keyword Density', passed: densityStatus === 'success', status: densityStatus, message: densityStatus === 'success' ? `${density.toFixed(1)}% (optimal)` : density > 3 ? `${density.toFixed(1)}% (too high)` : `${density.toFixed(1)}% (too low)`, icon: densityStatus === 'success' ? Check : densityStatus === 'warning' ? CircleAlert : X, current: `${density.toFixed(1)}%`, target: '1-3%' });
   if (densityStatus === 'success') results.score += 15;
 
   const countStatus = keywordCount >= 3 && keywordCount <= 5 ? 'success' : keywordCount > 5 ? 'error' : 'warning';
-  results.checks.push({
-    name: 'Keyword Count',
-    passed: countStatus === 'success',
-    status: countStatus,
-    message: countStatus === 'success' ? `${keywordCount} times (optimal)` : keywordCount > 5 ? `${keywordCount} times (too many)` : `${keywordCount} times (too few)`,
-    icon: countStatus === 'success' ? Check : countStatus === 'warning' ? CircleAlert : X,
-    current: `${keywordCount} times`,
-    target: '3-5 times',
-  });
+  results.checks.push({ name: 'Keyword Count', passed: countStatus === 'success', status: countStatus, message: countStatus === 'success' ? `${keywordCount} times (optimal)` : keywordCount > 5 ? `${keywordCount} times (too many)` : `${keywordCount} times (too few)`, icon: countStatus === 'success' ? Check : countStatus === 'warning' ? CircleAlert : X, current: `${keywordCount} times`, target: '3-5 times' });
   if (countStatus === 'success') results.score += 15;
 
   const h1s = html.querySelectorAll('h1');
@@ -281,81 +158,33 @@ function analyzeSEO(content: string, focusKeyword: string, title: string, metaDe
   const keywordInH1 = h1s.some(h => h.textContent?.toLowerCase().includes(focusKeyword.toLowerCase()));
   const keywordInH2 = h2s.some(h => h.textContent?.toLowerCase().includes(focusKeyword.toLowerCase()));
   const headingStatus = keywordInH1 || keywordInH2 ? 'success' : 'warning';
-  results.checks.push({
-    name: 'Keyword in Headings',
-    passed: headingStatus === 'success',
-    status: headingStatus,
-    message: headingStatus === 'success' ? 'Keyword in H1/H2' : 'Add keyword to H1 or H2',
-    icon: headingStatus === 'success' ? Check : CircleAlert,
-    current: headingStatus === 'success' ? 'Found' : 'Not found',
-    target: 'H1 or H2 with keyword',
-  });
+  results.checks.push({ name: 'Keyword in Headings', passed: headingStatus === 'success', status: headingStatus, message: headingStatus === 'success' ? 'Keyword in H1/H2' : 'Add keyword to H1 or H2', icon: headingStatus === 'success' ? Check : CircleAlert, current: headingStatus === 'success' ? 'Found' : 'Not found', target: 'H1 or H2 with keyword' });
   if (headingStatus === 'success') results.score += 10;
 
   const images = html.querySelectorAll('img');
   const imagesWithAlt = images.filter(img => img.getAttribute('alt') && img.getAttribute('alt')?.trim() !== '');
   const altStatus = images.length === 0 || imagesWithAlt.length === images.length ? 'success' : 'warning';
-  results.checks.push({
-    name: 'Image Alt Text',
-    passed: altStatus === 'success',
-    status: altStatus,
-    message: altStatus === 'success' ? `${imagesWithAlt.length}/${images.length} have alt text` : `${images.length - imagesWithAlt.length} images missing alt text`,
-    icon: altStatus === 'success' ? Check : CircleAlert,
-    current: `${imagesWithAlt.length}/${images.length}`,
-    target: 'All images need alt text',
-  });
+  results.checks.push({ name: 'Image Alt Text', passed: altStatus === 'success', status: altStatus, message: altStatus === 'success' ? `${imagesWithAlt.length}/${images.length} have alt text` : `${images.length - imagesWithAlt.length} images missing alt text`, icon: altStatus === 'success' ? Check : CircleAlert, current: `${imagesWithAlt.length}/${images.length}`, target: 'All images need alt text' });
   if (altStatus === 'success' && images.length > 0) results.score += 5;
 
   const readTimeMinutes = Math.ceil(readingStats.minutes);
   const readStatus = readTimeMinutes >= 3 ? 'success' : 'warning';
-  results.checks.push({
-    name: 'Reading Time',
-    passed: readStatus === 'success',
-    status: readStatus,
-    message: readStatus === 'success' ? `${readTimeMinutes} min read (good)` : `${readTimeMinutes} min read (too short)`,
-    icon: readStatus === 'success' ? Check : CircleAlert,
-    current: `${readTimeMinutes} min`,
-    target: '3+ minutes',
-  });
+  results.checks.push({ name: 'Reading Time', passed: readStatus === 'success', status: readStatus, message: readStatus === 'success' ? `${readTimeMinutes} min read (good)` : `${readTimeMinutes} min read (too short)`, icon: readStatus === 'success' ? Check : CircleAlert, current: `${readTimeMinutes} min`, target: '3+ minutes' });
   if (readStatus === 'success') results.score += 5;
 
   const links = html.querySelectorAll('a');
   const linkStatus = links.length > 0 ? 'success' : 'warning';
-  results.checks.push({
-    name: 'Links',
-    passed: linkStatus === 'success',
-    status: linkStatus,
-    message: linkStatus === 'success' ? `${links.length} links found` : 'Add internal or external links',
-    icon: linkStatus === 'success' ? Check : CircleAlert,
-    current: `${links.length} links`,
-    target: '1+ links',
-  });
+  results.checks.push({ name: 'Links', passed: linkStatus === 'success', status: linkStatus, message: linkStatus === 'success' ? `${links.length} links found` : 'Add internal or external links', icon: linkStatus === 'success' ? Check : CircleAlert, current: `${links.length} links`, target: '1+ links' });
   if (linkStatus === 'success') results.score += 5;
 
   const uls = html.querySelectorAll('ul');
   const ols = html.querySelectorAll('ol');
   const listStatus = uls.length > 0 || ols.length > 0 ? 'success' : 'warning';
-  results.checks.push({
-    name: 'Lists',
-    passed: listStatus === 'success',
-    status: listStatus,
-    message: listStatus === 'success' ? `${uls.length + ols.length} lists found` : 'Add bullet or numbered lists',
-    icon: listStatus === 'success' ? Check : CircleAlert,
-    current: `${uls.length + ols.length} lists`,
-    target: '1+ lists',
-  });
+  results.checks.push({ name: 'Lists', passed: listStatus === 'success', status: listStatus, message: listStatus === 'success' ? `${uls.length + ols.length} lists found` : 'Add bullet or numbered lists', icon: listStatus === 'success' ? Check : CircleAlert, current: `${uls.length + ols.length} lists`, target: '1+ lists' });
   if (listStatus === 'success') results.score += 5;
 
   const kwStatus = metaKeywords && metaKeywords.length > 0 ? 'success' : 'warning';
-  results.checks.push({
-    name: 'Meta Keywords',
-    passed: kwStatus === 'success',
-    status: kwStatus,
-    message: kwStatus === 'success' ? 'Meta keywords added' : 'Add meta keywords',
-    icon: kwStatus === 'success' ? Check : CircleAlert,
-    current: kwStatus === 'success' ? 'Added' : 'Not added',
-    target: 'Add keywords',
-  });
+  results.checks.push({ name: 'Meta Keywords', passed: kwStatus === 'success', status: kwStatus, message: kwStatus === 'success' ? 'Meta keywords added' : 'Add meta keywords', icon: kwStatus === 'success' ? Check : CircleAlert, current: kwStatus === 'success' ? 'Added' : 'Not added', target: 'Add keywords' });
   if (kwStatus === 'success') results.score += 5;
 
   return results;
@@ -372,6 +201,15 @@ export default function CreateOfferPage() {
   const [activeTab, setActiveTab] = useState<'seo' | 'settings' | 'meta'>('seo');
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+
+  // ✅ Media Library States
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [mediaImages, setMediaImages] = useState<string[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [mediaInsertType, setMediaInsertType] = useState<'cover' | 'content'>('cover');
+
+  // CKEditor instance ref
+  const editorRef = useRef<any>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -418,6 +256,48 @@ export default function CreateOfferPage() {
 
   const generateSlug = (title: string) => {
     return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  };
+
+  // ✅ دالة فتح المكتبة
+  const openMediaLibrary = async (type: 'cover' | 'content') => {
+    setMediaInsertType(type);
+    setIsMediaModalOpen(true);
+    setLoadingImages(true);
+    try {
+      const res = await fetch('/api/admin/media?folder=offers'); // 👈 المجلد هنا
+      if (!res.ok) throw new Error('Failed to fetch images');
+      
+      const data = await res.json();
+      setMediaImages(data.images || []);
+    } catch (err) {
+      console.error('Error fetching media:', err);
+      showToast('Failed to load media library', 'error');
+      setMediaImages([]);
+    } finally {
+      setLoadingImages(false);
+    }
+  };
+
+  // ✅ حذف صورة
+  const handleDeleteImage = async (e: React.MouseEvent, url: string) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this image permanently?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/media/delete?url=${encodeURIComponent(url)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+      const data = await res.json();
+      if (data.success) {
+        setMediaImages((prev) => prev.filter((img) => img !== url));
+        showToast('Image deleted successfully', 'success');
+      }
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      showToast('Failed to delete image', 'error');
+    }
   };
 
   const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -535,19 +415,11 @@ export default function CreateOfferPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    if (status === 'success') return 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5';
-    if (status === 'warning') return 'text-amber-400 border-amber-500/20 bg-amber-500/5';
-    return 'text-rose-400 border-rose-500/20 bg-rose-500/5';
-  };
+  const getStatusColor = (status: string) => status === 'success' ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : status === 'warning' ? 'text-amber-400 border-amber-500/20 bg-amber-500/5' : 'text-rose-400 border-rose-500/20 bg-rose-500/5';
   const getScoreColor = (score: number) => score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-rose-400';
   const getScoreBg = (score: number) => score >= 80 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-rose-500';
   const getScoreLabel = (score: number) => score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Needs Improvement' : 'Poor';
-  const getStatusIcon = (status: string) => {
-    if (status === 'success') return <CircleCheck size={16} className="text-emerald-400 shrink-0" />;
-    if (status === 'warning') return <CircleAlert size={16} className="text-amber-400 shrink-0" />;
-    return <Circle size={16} className="text-rose-400 shrink-0" />;
-  };
+  const getStatusIcon = (status: string) => status === 'success' ? <CircleCheck size={16} className="text-emerald-400 shrink-0" /> : status === 'warning' ? <CircleAlert size={16} className="text-amber-400 shrink-0" /> : <Circle size={16} className="text-rose-400 shrink-0" />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -569,11 +441,7 @@ export default function CreateOfferPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50"
-        >
+        <button onClick={handleSubmit} disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {loading ? 'Saving...' : 'Publish Offer'}
         </button>
@@ -587,51 +455,33 @@ export default function CreateOfferPage() {
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Basic Information</h2>
 
             <div className="space-y-4">
-              {/* Title */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Title *</label>
                 <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      title: e.target.value,
-                      slug: formData.slug || generateSlug(e.target.value),
-                      meta_title: formData.meta_title || e.target.value,
-                    });
-                  }}
+                  type="text" required value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value, slug: formData.slug || generateSlug(e.target.value), meta_title: formData.meta_title || e.target.value })}
                   placeholder="Enter offer title..."
                   className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                 />
                 <div className="mt-1 text-xs text-slate-400 dark:text-white/30">{formData.title.length}/255 characters</div>
               </div>
 
-              {/* Slug */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Slug *</label>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <span className="text-slate-500 dark:text-white/30 text-sm shrink-0 hidden sm:block">/offers/</span>
                   <input
-                    type="text"
-                    required
-                    value={formData.slug}
+                    type="text" required value={formData.slug}
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                     placeholder="offer-url-slug"
                     className="flex-1 px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, slug: generateSlug(formData.title) })}
-                    className="px-4 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors whitespace-nowrap"
-                  >
+                  <button type="button" onClick={() => setFormData({ ...formData, slug: generateSlug(formData.title) })} className="px-4 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors whitespace-nowrap">
                     Generate
                   </button>
                 </div>
               </div>
 
-              {/* Offer Link */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Offer Link *</label>
                 <div className="relative">
@@ -639,9 +489,7 @@ export default function CreateOfferPage() {
                     <LinkIcon size={16} />
                   </div>
                   <input
-                    type="url"
-                    required
-                    value={formData.offer_link}
+                    type="url" required value={formData.offer_link}
                     onChange={(e) => setFormData({ ...formData, offer_link: e.target.value })}
                     placeholder="https://example.com/offer"
                     className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
@@ -649,12 +497,10 @@ export default function CreateOfferPage() {
                 </div>
               </div>
 
-              {/* Category */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Category</label>
                 <select
-                  value={formData.category_id}
-                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                  value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
                   className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                 >
                   <option value="">— Select category —</option>
@@ -664,7 +510,6 @@ export default function CreateOfferPage() {
                 </select>
               </div>
 
-              {/* Author */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Author</label>
                 <div className="relative">
@@ -672,8 +517,7 @@ export default function CreateOfferPage() {
                     <User size={16} />
                   </div>
                   <select
-                    value={formData.author_id}
-                    onChange={(e) => setFormData({ ...formData, author_id: e.target.value })}
+                    value={formData.author_id} onChange={(e) => setFormData({ ...formData, author_id: e.target.value })}
                     className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                   >
                     <option value="">— Select author —</option>
@@ -684,13 +528,11 @@ export default function CreateOfferPage() {
                 </div>
               </div>
 
-              {/* Payout Label + Payout Amount */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Payout Label</label>
                   <select
-                    value={formData.pay_name}
-                    onChange={(e) => setFormData({ ...formData, pay_name: e.target.value })}
+                    value={formData.pay_name} onChange={(e) => setFormData({ ...formData, pay_name: e.target.value })}
                     className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                   >
                     <option value="">Select label...</option>
@@ -707,8 +549,7 @@ export default function CreateOfferPage() {
                       <DollarSign size={16} />
                     </div>
                     <input
-                      type="text"
-                      value={formData.payout_amount}
+                      type="text" value={formData.payout_amount}
                       onChange={(e) => setFormData({ ...formData, payout_amount: e.target.value })}
                       placeholder="$5 - $50"
                       className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
@@ -717,19 +558,16 @@ export default function CreateOfferPage() {
                 </div>
               </div>
 
-              {/* Brand Name */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Brand Name</label>
                 <input
-                  type="text"
-                  value={formData.brand_name}
+                  type="text" value={formData.brand_name}
                   onChange={(e) => setFormData({ ...formData, brand_name: e.target.value })}
                   placeholder="e.g. Nike, Swagbucks, PayPal"
                   className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                 />
               </div>
 
-              {/* COUNTRY SELECTOR */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Available Countries</label>
                 <CountrySelect
@@ -741,7 +579,6 @@ export default function CreateOfferPage() {
                 </p>
               </div>
 
-              {/* Rating & Verified Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Rating (1.0 - 5.0)</label>
@@ -750,11 +587,7 @@ export default function CreateOfferPage() {
                       <Star size={16} />
                     </div>
                     <input
-                      type="number"
-                      step="0.1"
-                      min="1"
-                      max="5"
-                      value={formData.rating}
+                      type="number" step="0.1" min="1" max="5" value={formData.rating}
                       onChange={(e) => setFormData({ ...formData, rating: e.target.value })}
                       placeholder="4.5"
                       className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
@@ -769,8 +602,7 @@ export default function CreateOfferPage() {
                       <Calendar size={16} />
                     </div>
                     <input
-                      type="date"
-                      value={formData.verified_date}
+                      type="date" value={formData.verified_date}
                       onChange={(e) => setFormData({ ...formData, verified_date: e.target.value })}
                       className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                     />
@@ -778,7 +610,6 @@ export default function CreateOfferPage() {
                 </div>
               </div>
 
-              {/* Withdraw Method */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Withdrawal Methods</label>
                 <div className="relative">
@@ -786,8 +617,7 @@ export default function CreateOfferPage() {
                     <CreditCard size={16} />
                   </div>
                   <input
-                    type="text"
-                    value={formData.withdraw_method}
+                    type="text" value={formData.withdraw_method}
                     onChange={(e) => setFormData({ ...formData, withdraw_method: e.target.value })}
                     placeholder="PayPal, Bitcoin, Gift Cards"
                     className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
@@ -795,7 +625,7 @@ export default function CreateOfferPage() {
                 </div>
               </div>
 
-              {/* Cover Image */}
+              {/* ✅ Cover Image Upload + Browse */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Cover Image</label>
                 <div className="flex flex-col items-center justify-center w-full">
@@ -804,25 +634,29 @@ export default function CreateOfferPage() {
                       <div className="relative w-full aspect-video max-h-[300px] border border-slate-200 dark:border-white/10 overflow-hidden">
                         <Image src={coverImagePreview} alt="Cover preview" fill className="object-cover" />
                       </div>
-                      <button
-                        type="button"
-                        onClick={removeCoverImage}
-                        className="absolute top-2 right-2 p-1.5 bg-rose-500/90 hover:bg-rose-600 text-white transition-colors"
-                      >
+                      <button type="button" onClick={removeCoverImage} className="absolute top-2 right-2 p-1.5 bg-rose-500/90 hover:bg-rose-600 text-white transition-colors">
                         <Trash2 size={16} />
                       </button>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 dark:border-white/20 cursor-pointer hover:border-yellow/50 transition-colors bg-slate-50 dark:bg-white/5">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload size={32} className="text-slate-400 dark:text-white/30 mb-2" />
-                        <p className="mb-2 text-sm text-slate-500 dark:text-white/40">
-                          <span className="font-semibold">Click to upload</span> or drag and drop
-                        </p>
-                        <p className="text-xs text-slate-400 dark:text-white/30">PNG, JPG, WebP (max 5MB)</p>
-                      </div>
-                      <input type="file" accept="image/*" onChange={handleCoverImageUpload} className="hidden" />
-                    </label>
+                    <div className="w-full flex flex-col gap-3">
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-white/20 cursor-pointer hover:border-yellow/50 transition-colors bg-slate-50 dark:bg-white/5">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <Upload size={32} className="text-slate-400 dark:text-white/30 mb-2" />
+                          <p className="mb-2 text-sm text-slate-500 dark:text-white/40"><span className="font-semibold">Click to upload</span></p>
+                          <p className="text-xs text-slate-400 dark:text-white/30">Auto-compressed to WebP</p>
+                        </div>
+                        <input type="file" accept="image/*" onChange={handleCoverImageUpload} className="hidden" />
+                      </label>
+                      
+                      <button
+                        type="button" onClick={() => openMediaLibrary('cover')}
+                        className="w-full py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <ImageIcon size={16} />
+                        Browse Cover Image
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -832,51 +666,53 @@ export default function CreateOfferPage() {
           {/* Content */}
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Content *</h2>
+
+            {/* ✅ زر إدراج صورة في المحتوى من المكتبة */}
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => openMediaLibrary('content')}
+                className="px-4 py-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-white text-sm font-bold border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors flex items-center gap-2"
+              >
+                <ImageIcon size={16} />
+                Insert Image from Library
+              </button>
+            </div>
+
             <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
               {isEditorReady ? (
                 <CKEditor
-                  editor={ClassicEditor}
-                  config={editorConfig}
-                  data={formData.content}
-                  onChange={(event: any, editor: any) => {
-                    const data = editor.getData();
-                    setFormData({ ...formData, content: data });
-                  }}
+                  editor={ClassicEditor} config={editorConfig} data={formData.content}
+                  onReady={(editor: any) => { editorRef.current = editor; }}
+                  onChange={(event: any, editor: any) => { setFormData({ ...formData, content: editor.getData() }); }}
                 />
               ) : (
                 <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
-                  <Loader2 size={24} className="animate-spin text-yellow mr-2" />
-                  Loading editor...
+                  <Loader2 size={24} className="animate-spin text-yellow mr-2" /> Loading editor...
                 </div>
               )}
             </div>
             {isUploading && (
               <div className="mt-2 flex items-center gap-2 text-sm text-yellow">
-                <Loader2 size={16} className="animate-spin" />
-                Uploading image...
+                <Loader2 size={16} className="animate-spin" /> Uploading image...
               </div>
             )}
-            <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
-              Use the editor toolbar to format text, add images, tables, and more.
-            </div>
           </div>
         </div>
 
         {/* SIDEBAR */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Mobile Tabs */}
           <div className="flex sm:hidden gap-1 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-1">
-            <button onClick={() => setActiveTab('seo')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'seo' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'}`}>SEO</button>
-            <button onClick={() => setActiveTab('settings')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'settings' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'}`}>Settings</button>
-            <button onClick={() => setActiveTab('meta')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'meta' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'}`}>Meta</button>
+            <button onClick={() => setActiveTab('seo')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'seo' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40'}`}>SEO</button>
+            <button onClick={() => setActiveTab('settings')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'settings' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40'}`}>Settings</button>
+            <button onClick={() => setActiveTab('meta')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'meta' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40'}`}>Meta</button>
           </div>
 
           {/* SEO Analysis */}
           <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'seo' ? 'block' : 'hidden sm:block'}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <TrendingUp size={18} className="text-yellow" />
-                SEO Analysis
+                <TrendingUp size={18} className="text-yellow" /> SEO Analysis
               </h2>
               {seoResults && (
                 <div className="text-right">
@@ -890,13 +726,7 @@ export default function CreateOfferPage() {
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Focus Keyword</label>
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={focusKeyword}
-                  onChange={(e) => setFocusKeyword(e.target.value)}
-                  placeholder="Enter focus keyword..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                />
+                <input type="text" value={focusKeyword} onChange={(e) => setFocusKeyword(e.target.value)} placeholder="Enter focus keyword..." className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors" />
               </div>
             </div>
 
@@ -945,13 +775,10 @@ export default function CreateOfferPage() {
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Publish Settings</h2>
             <div className="space-y-3">
               <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/70 cursor-pointer">
-                <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })} className="w-4 h-4 accent-yellow" />
-                Published (Active)
+                <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })} className="w-4 h-4 accent-yellow" /> Published (Active)
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/70 cursor-pointer">
-                <input type="checkbox" checked={formData.is_boosted} onChange={(e) => setFormData({ ...formData, is_boosted: e.target.checked })} className="w-4 h-4 accent-yellow" />
-                <Sparkles size={14} className="text-yellow" />
-                Featured (Boosted)
+                <input type="checkbox" checked={formData.is_boosted} onChange={(e) => setFormData({ ...formData, is_boosted: e.target.checked })} className="w-4 h-4 accent-yellow" /> <Sparkles size={14} className="text-yellow" /> Featured (Boosted)
               </label>
             </div>
           </div>
@@ -959,42 +786,22 @@ export default function CreateOfferPage() {
           {/* Meta Tags */}
           <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'meta' ? 'block' : 'hidden sm:block'}`}>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <Tag size={18} className="text-yellow" />
-              Meta Tags
+              <Tag size={18} className="text-yellow" /> Meta Tags
             </h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Meta Title</label>
-                <input
-                  type="text"
-                  value={formData.meta_title}
-                  onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
-                  placeholder="SEO title (leave blank to use offer title)"
-                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                />
+                <input type="text" value={formData.meta_title} onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })} placeholder="SEO title" className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors" />
                 <div className="mt-1 text-xs text-slate-400 dark:text-white/30">{formData.meta_title.length}/150 characters</div>
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Meta Description</label>
-                <textarea
-                  value={formData.meta_description}
-                  onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
-                  rows={2}
-                  placeholder="SEO description (120-160 chars)"
-                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors resize-y"
-                />
+                <textarea value={formData.meta_description} onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })} rows={2} placeholder="SEO description (120-160 chars)" className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors resize-y" />
                 <div className="mt-1 text-xs text-slate-400 dark:text-white/30">{formData.meta_description.length}/160 characters</div>
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Meta Keywords</label>
-                <input
-                  type="text"
-                  value={formData.meta_keywords}
-                  onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })}
-                  placeholder="keyword1, keyword2, keyword3"
-                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                />
-                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">Comma separated keywords</div>
+                <input type="text" value={formData.meta_keywords} onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })} placeholder="keyword1, keyword2" className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors" />
               </div>
             </div>
           </div>
@@ -1005,9 +812,7 @@ export default function CreateOfferPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-700 dark:text-white/60">SEO Score</span>
                 <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 flex items-center justify-center text-xl font-bold ${getScoreColor(seoResults.score)} border-2 ${getScoreBg(seoResults.score)}/20`}>
-                    {seoResults.score}
-                  </div>
+                  <div className={`w-12 h-12 flex items-center justify-center text-xl font-bold ${getScoreColor(seoResults.score)} border-2 ${getScoreBg(seoResults.score)}/20`}>{seoResults.score}</div>
                   <span className={`text-sm font-medium ${getScoreColor(seoResults.score)}`}>{getScoreLabel(seoResults.score)}</span>
                 </div>
               </div>
@@ -1015,6 +820,77 @@ export default function CreateOfferPage() {
           )}
         </div>
       </div>
+
+      {/* ✅ Media Library Popup Modal */}
+      {isMediaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/10">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                <ImageIcon size={20} className="text-yellow" /> Select Image for {mediaInsertType === 'cover' ? 'Cover' : 'Content'}
+              </h3>
+              <button onClick={() => setIsMediaModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 min-h-[300px]">
+              {loadingImages ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <Loader2 size={32} className="animate-spin text-yellow mb-2" />
+                  <p>Loading images...</p>
+                </div>
+              ) : mediaImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <ImageIcon size={48} className="mb-2 opacity-30" />
+                  <p>No images in this folder yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                  {mediaImages.map((img) => (
+                    <div
+                      key={img}
+                      className="group relative aspect-square border border-slate-200 dark:border-white/10 hover:border-yellow transition-colors overflow-hidden bg-slate-100 dark:bg-white/5"
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteImage(e, img)}
+                        className="absolute top-2 left-2 z-10 p-1.5 bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600 rounded-sm shadow-md"
+                        title="Delete Image"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (mediaInsertType === 'cover') {
+                            setFormData({ ...formData, cover_image: img });
+                            setCoverImagePreview(img);
+                          } else {
+                            if (editorRef.current) {
+                              editorRef.current.model.change((writer: any) => {
+                                const imageElement = writer.createElement('imageBlock', {
+                                  src: img,
+                                });
+                                editorRef.current.model.insertContent(
+                                  imageElement,
+                                  editorRef.current.model.document.selection
+                                );
+                              });
+                            }
+                          }
+                          setIsMediaModalOpen(false);
+                        }}
+                        className="w-full h-full"
+                      >
+                        <img src={img} alt="Media" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

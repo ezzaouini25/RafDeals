@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import {
   Settings,
   RefreshCw,
@@ -16,6 +17,11 @@ import {
   Shield,
   ShieldCheck,
   ShieldAlert,
+  Camera,
+  Upload,
+  Trash2 as TrashIcon,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react';
 
 // Toast Component
@@ -48,16 +54,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
   );
 }
 
-function X({ size }: { size: number }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-interface User {
+interface UserProfile {
   id: number;
   name: string;
   username: string;
@@ -66,6 +63,7 @@ interface User {
   is_active: boolean | number;
   is_blocked: boolean | number;
   created_at: string;
+  picture: string | null; // ✅ Added
 }
 
 const getRoleIcon = (role: string) => {
@@ -87,7 +85,7 @@ const getRoleBadgeColor = (role: string) => {
 };
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -101,6 +99,13 @@ export default function SettingsPage() {
     newPassword: '',
     confirmPassword: '',
   });
+  
+  // ✅ Image State
+  const [pictureFile, setPictureFile] = useState<File | null>(null);
+  const [picturePreview, setPicturePreview] = useState<string | null>(null);
+  const [removePicture, setRemovePicture] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [formError, setFormError] = useState<string | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -131,6 +136,9 @@ export default function SettingsPage() {
         newPassword: '',
         confirmPassword: '',
       });
+      setPicturePreview(data.user.picture || null);
+      setPictureFile(null);
+      setRemovePicture(false);
     } catch (err: any) {
       showToast(err.message || 'Failed to fetch profile', 'error');
     } finally {
@@ -141,6 +149,32 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  // ✅ Handle Image Selection
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image too large. Max 5MB allowed', 'error');
+        return;
+      }
+      setPictureFile(file);
+      setRemovePicture(false);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPicturePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // ✅ Handle Image Removal
+  const handleRemoveImage = () => {
+    setPictureFile(null);
+    setPicturePreview(null);
+    setRemovePicture(true);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,23 +208,28 @@ export default function SettingsPage() {
     }
 
     try {
-      const body: any = {
-        name: formData.name,
-        username: formData.username,
-        email: formData.email,
-      };
+      // ✅ Use FormData instead of JSON to support file upload
+      const formDataObj = new FormData();
+      formDataObj.append('name', formData.name);
+      formDataObj.append('username', formData.username);
+      formDataObj.append('email', formData.email);
 
       if (formData.newPassword) {
-        body.currentPassword = formData.currentPassword;
-        body.newPassword = formData.newPassword;
+        formDataObj.append('currentPassword', formData.currentPassword);
+        formDataObj.append('newPassword', formData.newPassword);
+      }
+
+      if (pictureFile) {
+        formDataObj.append('picture', pictureFile);
+      }
+
+      if (removePicture) {
+        formDataObj.append('remove_picture', 'true');
       }
 
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+        body: formDataObj, // ✅ Send FormData
       });
 
       if (res.status === 401) {
@@ -205,6 +244,9 @@ export default function SettingsPage() {
       }
 
       setUser(data.user);
+      setPicturePreview(data.user.picture || null);
+      setPictureFile(null);
+      setRemovePicture(false);
       setFormData({
         ...formData,
         currentPassword: '',
@@ -271,15 +313,62 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* MAIN CONTENT - FULL WIDTH */}
+      {/* MAIN CONTENT */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT COLUMN - User Info Card */}
         <div className="lg:col-span-1">
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-6">
             <div className="flex flex-col items-center text-center">
-              <div className="w-24 h-24 bg-yellow/10 border border-yellow/20 rounded-full flex items-center justify-center mb-4">
-                <UserCircle size={48} className="text-yellow" />
+              
+              {/* ✅ Profile Picture with Upload Overlay */}
+              <div className="relative w-24 h-24 mb-4 group">
+                <div className="w-24 h-24 bg-yellow/10 border border-yellow/20 rounded-full flex items-center justify-center overflow-hidden">
+                  {picturePreview ? (
+                    <Image
+                      src={picturePreview}
+                      alt={user.name}
+                      width={96}
+                      height={96}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <UserCircle size={48} className="text-yellow" />
+                  )}
+                </div>
+                
+                {/* Hover Overlay for Upload */}
+                <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <Camera size={24} className="text-white" />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
               </div>
+
+              {/* Quick Image Controls */}
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white transition-colors flex items-center gap-1"
+                >
+                  <Upload size={12} /> Change
+                </button>
+                {picturePreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="text-xs font-medium text-rose-500 hover:text-rose-600 transition-colors flex items-center gap-1"
+                  >
+                    <TrashIcon size={12} /> Remove
+                  </button>
+                )}
+              </div>
+
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 {user.name}
               </h2>
@@ -312,7 +401,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN - Profile Form (takes 2/3 of space) */}
+        {/* RIGHT COLUMN - Profile Form */}
         <div className="lg:col-span-2">
           <form onSubmit={handleSubmit} className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-6 space-y-5">
             {formError && (

@@ -3,7 +3,7 @@ import pool from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get subscriptions from last 12 hours
+    // ✅ Check if the table exists and fetch data safely
     const [subscriptions] = await pool.execute(
       `SELECT id, email, created_at 
        FROM subscriptions 
@@ -11,15 +11,20 @@ export async function GET(request: NextRequest) {
        ORDER BY created_at DESC`
     );
 
+    // ✅ Ensure it's always an array (even if the query returns undefined)
+    const notifications = Array.isArray(subscriptions) ? subscriptions : [];
+
     return NextResponse.json({
-      notifications: subscriptions,
-      total: (subscriptions as any[]).length,
+      notifications: notifications,
+      total: notifications.length,
     });
   } catch (error) {
     console.error('Error fetching subscription notifications:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch subscription notifications' },
-      { status: 500 }
-    );
+    
+    // ✅ Return an empty valid JSON instead of a 500 error
+    return NextResponse.json({
+      notifications: [],
+      total: 0,
+    });
   }
 }

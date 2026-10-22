@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 
 interface OfferClickTrackerProps {
   offerLink: string;
@@ -15,12 +15,19 @@ export default function OfferClickTracker({
   className = '', 
   children 
 }: OfferClickTrackerProps) {
-  
+  // ✅ Prevent double tracking
+  const [isTracking, setIsTracking] = useState(false);
+
   const handleClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // Allow the link to open naturally
-    // Track click in background without blocking navigation
-    
+    // ✅ 1. Stop the default link behavior
+    e.preventDefault();
+
+    // ✅ 2. If already tracking, ignore
+    if (isTracking) return;
+    setIsTracking(true);
+
     try {
+      // ✅ 3. Track the click in the database
       await fetch('/api/public/offers/track-click', {
         method: 'POST',
         headers: {
@@ -32,6 +39,12 @@ export default function OfferClickTracker({
       // Silent fail - don't block navigation
       console.error('Error tracking offer click:', error);
     }
+
+    // ✅ 4. Open the link manually AFTER tracking
+    window.open(offerLink, '_blank', 'noopener,noreferrer');
+
+    // ✅ 5. Reset tracking state after 1 second
+    setTimeout(() => setIsTracking(false), 1000);
   };
 
   return (

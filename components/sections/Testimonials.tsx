@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { 
   Star, ShieldCheck, X, Upload, MessageSquare, AlertCircle, 
@@ -25,7 +25,6 @@ interface Testimonial {
   created_at: string;
 }
 
-// Fallback testimonials
 const fallbackTestimonials: Testimonial[] = [
   {
     id: 1,
@@ -36,7 +35,7 @@ const fallbackTestimonials: Testimonial[] = [
     rating: 5,
     payout_amount: '140.00',
     payout_type: 'first week',
-    image_path: "/img/testimonials/avatar.jpeg",
+    image_path: null,
     created_at: '2026-07-01'
   },
   {
@@ -48,7 +47,7 @@ const fallbackTestimonials: Testimonial[] = [
     rating: 5,
     payout_amount: '450.00',
     payout_type: 'per month part-time',
-    image_path: "/img/testimonials/avatar11.jpeg",
+    image_path: null,
     created_at: '2026-07-05'
   },
   {
@@ -60,21 +59,29 @@ const fallbackTestimonials: Testimonial[] = [
     rating: 5,
     payout_amount: '85.00',
     payout_type: 'in gift cards',
-    image_path: "/img/testimonials/avatar2.jpeg",
+    image_path: null,
     created_at: '2026-07-10'
   }
 ];
 
+// ✅ 12 Female avatars
 const femaleAvatars = [
-  '/img/testimonials/avatar1.jpeg', '/img/testimonials/avatar2.jpeg', '/img/testimonials/avatar3.jpeg',
-  '/img/testimonials/avatar4.jpeg', '/img/testimonials/avatar5.jpeg', '/img/testimonials/avatar6.jpeg',
-  '/img/testimonials/avatar7.jpeg',
+  '/img/testimonials/female-01.jpeg', '/img/testimonials/female-02.jpeg',
+  '/img/testimonials/female-03.jpeg', '/img/testimonials/female-04.jpeg',
+  '/img/testimonials/female-05.jpeg', '/img/testimonials/female-06.jpeg',
+  '/img/testimonials/female-07.jpeg', '/img/testimonials/female-08.jpeg',
+  '/img/testimonials/female-09.jpeg', '/img/testimonials/female-10.jpeg',
+  '/img/testimonials/female-11.jpeg', '/img/testimonials/female-12.jpeg',
 ];
 
+// ✅ 12 Male avatars
 const maleAvatars = [
-  '/img/testimonials/avatar8.jpeg', '/img/testimonials/avatar9.jpeg', '/img/testimonials/avatar10.jpeg',
-  '/img/testimonials/avatar11.jpeg', '/img/testimonials/avatar12.jpeg', '/img/testimonials/avatar13.jpeg',
-  '/img/testimonials/avatar14.jpeg', '/img/testimonials/avatar15.jpeg', '/img/testimonials/avatar16.jpeg',
+  '/img/testimonials/male-01.jpeg', '/img/testimonials/male-02.jpeg',
+  '/img/testimonials/male-03.jpeg', '/img/testimonials/male-04.jpeg',
+  '/img/testimonials/male-05.jpeg', '/img/testimonials/male-06.jpeg',
+  '/img/testimonials/male-07.jpeg', '/img/testimonials/male-08.jpeg',
+  '/img/testimonials/male-09.jpeg', '/img/testimonials/male-10.jpeg',
+  '/img/testimonials/male-11.jpeg', '/img/testimonials/male-12.jpeg',
 ];
 
 const payoutTypes = [
@@ -88,15 +95,11 @@ const getConsistentAvatar = (name: string, gender: 'male' | 'female' | null): st
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const index = Math.abs(hash) % 9;
-  
-  if (gender === 'female') {
-    return femaleAvatars[Math.abs(hash) % 7];
-  } else if (gender === 'male') {
-    return maleAvatars[index];
-  } else {
-    return hash % 2 === 0 ? femaleAvatars[Math.abs(hash) % 7] : maleAvatars[index];
-  }
+  const index = Math.abs(hash) % 12;
+
+  if (gender === 'female') return femaleAvatars[index];
+  if (gender === 'male') return maleAvatars[index];
+  return hash % 2 === 0 ? femaleAvatars[index] : maleAvatars[index];
 };
 
 export default function Testimonials() {
@@ -125,6 +128,15 @@ export default function Testimonials() {
   // --- CAROUSEL STATE ---
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(1200);
+
+  // ✅ Track window width for responsive slider
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchTestimonials = async () => {
@@ -186,16 +198,22 @@ export default function Testimonials() {
     return () => clearInterval(timer);
   }, [isBlocked, remainingSeconds]);
 
-  // Auto-slide logic - only for the 15 most recent
   const displayTestimonials = testimonials.slice(0, 15);
 
+  // ✅ Determine how many cards to show per screen
+  const cardsPerScreen = windowWidth >= 1024 ? 3 : windowWidth >= 768 ? 2 : 1;
+
+  // ✅ Check if we have enough data to slide
+  const canSlide = displayTestimonials.length > cardsPerScreen;
+
+  // ✅ Auto-slide logic - only if there are enough cards
   useEffect(() => {
-    if (isPaused || displayTestimonials.length <= 3) return;
+    if (!canSlide || isPaused) return;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % displayTestimonials.length);
     }, 4500);
     return () => clearInterval(interval);
-  }, [isPaused, displayTestimonials.length]);
+  }, [canSlide, isPaused, displayTestimonials.length]);
 
   const formatCountdown = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -295,8 +313,15 @@ export default function Testimonials() {
     }
   };
 
-  const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % displayTestimonials.length);
-  const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + displayTestimonials.length) % displayTestimonials.length);
+  const nextSlide = () => {
+    if (!canSlide) return;
+    setCurrentIndex((prev) => (prev + 1) % displayTestimonials.length);
+  };
+
+  const prevSlide = () => {
+    if (!canSlide) return;
+    setCurrentIndex((prev) => (prev - 1 + displayTestimonials.length) % displayTestimonials.length);
+  };
 
   return (
     <section className="py-20 bg-light-gray overflow-hidden" id="testimonials">
@@ -341,27 +366,31 @@ export default function Testimonials() {
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          {/* Arrows - Now fully visible on ALL devices */}
-          <button 
-            onClick={prevSlide}
-            aria-label="Previous testimonial"
-            className="absolute top-1/2 -left-2 sm:-left-4 lg:-left-8 -translate-y-1/2 w-10 h-10 bg-white items-center justify-center shadow-md border border-border-gray text-navy hover:bg-yellow hover:border-yellow transition-colors z-20 flex"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <button 
-            onClick={nextSlide}
-            aria-label="Next testimonial"
-            className="absolute top-1/2 -right-2 sm:-right-4 lg:-right-8 -translate-y-1/2 w-10 h-10 bg-white items-center justify-center shadow-md border border-border-gray text-navy hover:bg-yellow hover:border-yellow transition-colors z-20 flex"
-          >
-            <ChevronRight size={24} />
-          </button>
+          {/* ✅ Arrows - Only show if there are more items than fit on screen */}
+          {canSlide && (
+            <>
+              <button 
+                onClick={prevSlide}
+                aria-label="Previous testimonial"
+                className="absolute top-1/2 -left-2 sm:-left-4 lg:-left-8 -translate-y-1/2 w-10 h-10 bg-white items-center justify-center shadow-md border border-border-gray text-navy hover:bg-yellow hover:border-yellow transition-colors z-20 flex"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button 
+                onClick={nextSlide}
+                aria-label="Next testimonial"
+                className="absolute top-1/2 -right-2 sm:-right-4 lg:-right-8 -translate-y-1/2 w-10 h-10 bg-white items-center justify-center shadow-md border border-border-gray text-navy hover:bg-yellow hover:border-yellow transition-colors z-20 flex"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </>
+          )}
 
           {/* Slider Track */}
           <div className="overflow-hidden -mx-4 px-4 py-4">
             <div 
               className="flex transition-transform duration-700 ease-in-out"
-              style={{ transform: `translateX(-${currentIndex * (100 / (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1))}%)` }}
+              style={{ transform: `translateX(-${currentIndex * (100 / cardsPerScreen)}%)` }}
             >
               {displayTestimonials.map((t) => {
                 const avatar = t.image_path || getConsistentAvatar(t.author_name, t.gender);
@@ -434,24 +463,26 @@ export default function Testimonials() {
             </div>
           </div>
           
-          {/* Dots (Square) */}
-          <div className="flex justify-center gap-2 mt-8">
-            {displayTestimonials.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`transition-all duration-300 rounded-sm ${
-                  currentIndex === idx ? 'w-6 h-2.5 bg-navy' : 'w-2.5 h-2.5 bg-navy/20 hover:bg-navy/40'
-                }`}
-                aria-label={`Go to slide ${idx + 1}`}
-              />
-            ))}
-          </div>
+          {/* ✅ Dots - Only show if there are more items than fit on screen */}
+          {canSlide && (
+            <div className="flex justify-center gap-2 mt-8">
+              {displayTestimonials.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`transition-all duration-300 rounded-sm ${
+                    currentIndex === idx ? 'w-6 h-2.5 bg-navy' : 'w-2.5 h-2.5 bg-navy/20 hover:bg-navy/40'
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
 
-      {/* Share Story Popup Modal */}
+      {/* Share Story Popup Modal (Unchanged) */}
       <AnimatePresence>
         {isOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -469,7 +500,6 @@ export default function Testimonials() {
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               className="relative w-full max-w-lg bg-white rounded-none overflow-hidden shadow-2xl border border-border-gray max-h-[90vh] flex flex-col z-10"
             >
-              {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-border-gray/60 bg-light-gray/50 shrink-0">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="text-navy" size={20} />

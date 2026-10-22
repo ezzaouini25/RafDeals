@@ -6,7 +6,7 @@ import { writeFile, mkdir, unlink } from 'fs/promises';
 import path from 'path';
 
 // ============================================================
-// GET - Fetch all authors with article & offer counts
+// GET - Fetch all authors with article, offer, and deal counts
 // ============================================================
 export async function GET(request: NextRequest) {
   try {
@@ -14,18 +14,12 @@ export async function GET(request: NextRequest) {
     const token = cookieStore.get('admin_session')?.value;
     
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await verifySessionToken(token);
     if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -43,7 +37,7 @@ export async function GET(request: NextRequest) {
       params.push(searchTerm);
     }
 
-    // ✅ Get authors with bio, article_count and offer_count
+    // ✅ Added deal_count
     const [authors] = await pool.execute(
       `SELECT 
         a.id, 
@@ -54,12 +48,13 @@ export async function GET(request: NextRequest) {
         a.created_at, 
         a.updated_at,
         (SELECT COUNT(*) FROM articles WHERE author_id = a.id AND is_active = 1) as article_count,
-        (SELECT COUNT(*) FROM offers WHERE author_id = a.id AND is_active = 1) as offer_count
+        (SELECT COUNT(*) FROM offers WHERE author_id = a.id AND is_active = 1) as offer_count,
+        (SELECT COUNT(*) FROM deals WHERE author_id = a.id AND is_active = 1) as deal_count
        FROM authors a
        ${whereClause}
        ORDER BY a.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
+      params
     );
 
     let totalWhereClause = 'WHERE 1=1';
@@ -84,15 +79,12 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching authors:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch authors' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch authors' }, { status: 500 });
   }
 }
 
 // ============================================================
-// POST - Create new author (WITH BIO)
+// POST - Create new author
 // ============================================================
 export async function POST(request: NextRequest) {
   try {
@@ -100,18 +92,12 @@ export async function POST(request: NextRequest) {
     const token = cookieStore.get('admin_session')?.value;
     
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await verifySessionToken(token);
     if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const formData = await request.formData();
@@ -121,10 +107,7 @@ export async function POST(request: NextRequest) {
     const picture = formData.get('picture') as File | null;
 
     if (!name || name.trim() === '') {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
     let picturePath = null;
@@ -158,15 +141,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error creating author:', error);
-    return NextResponse.json(
-      { error: 'Failed to create author' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create author' }, { status: 500 });
   }
 }
 
 // ============================================================
-// PUT - Update author (WITH BIO)
+// PUT - Update author
 // ============================================================
 export async function PUT(request: NextRequest) {
   try {
@@ -174,28 +154,19 @@ export async function PUT(request: NextRequest) {
     const token = cookieStore.get('admin_session')?.value;
     
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await verifySessionToken(token);
     if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const searchParams = request.nextUrl.searchParams;
     const id = parseInt(searchParams.get('id') || '0');
 
     if (isNaN(id) || id === 0) {
-      return NextResponse.json(
-        { error: 'Invalid ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     }
 
     const formData = await request.formData();
@@ -206,23 +177,16 @@ export async function PUT(request: NextRequest) {
     const removePicture = formData.get('remove_picture') === 'true';
 
     if (!name || name.trim() === '') {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    // Get current author
     const [currentRows] = await pool.execute(
       'SELECT picture, bio FROM authors WHERE id = ?',
       [id]
     );
     const currentAuthor = (currentRows as any[])[0];
     if (!currentAuthor) {
-      return NextResponse.json(
-        { error: 'Author not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Author not found' }, { status: 404 });
     }
 
     let picturePath = currentAuthor.picture;
@@ -258,7 +222,6 @@ export async function PUT(request: NextRequest) {
       picturePath = `/uploads/authors/${filename}`;
     }
 
-    // ✅ Update with bio
     await pool.execute(
       'UPDATE authors SET name = ?, picture = ?, bio = ?, is_active = ? WHERE id = ?',
       [name.trim(), picturePath, bio, isActive ? 1 : 0, id]
@@ -271,10 +234,7 @@ export async function PUT(request: NextRequest) {
 
   } catch (error) {
     console.error('Error updating author:', error);
-    return NextResponse.json(
-      { error: 'Failed to update author' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update author' }, { status: 500 });
   }
 }
 
@@ -287,28 +247,19 @@ export async function DELETE(request: NextRequest) {
     const token = cookieStore.get('admin_session')?.value;
     
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await verifySessionToken(token);
     if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const searchParams = request.nextUrl.searchParams;
     const id = parseInt(searchParams.get('id') || '0');
 
     if (isNaN(id) || id === 0) {
-      return NextResponse.json(
-        { error: 'Invalid ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     }
 
     const [rows] = await pool.execute(
@@ -317,10 +268,7 @@ export async function DELETE(request: NextRequest) {
     );
     const author = (rows as any[])[0];
     if (!author) {
-      return NextResponse.json(
-        { error: 'Author not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Author not found' }, { status: 404 });
     }
 
     if (author.picture) {
@@ -339,9 +287,6 @@ export async function DELETE(request: NextRequest) {
 
   } catch (error) {
     console.error('Error deleting author:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete author' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete author' }, { status: 500 });
   }
 }

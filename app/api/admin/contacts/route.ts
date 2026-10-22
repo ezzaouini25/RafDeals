@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
        FROM contact_messages 
        ${whereClause}
        ORDER BY created_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
       [...params, limit, offset]
     );
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       params
     );
 
-    const total = totalResult[0]?.total || 0;
+    const total = (totalResult as any[])[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({

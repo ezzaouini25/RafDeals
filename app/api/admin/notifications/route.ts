@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       ) as combined
     `);
 
-    const total = totalResult[0]?.total || 0;
+    const total = (totalResult as any[])[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
     // GET COUNTS
@@ -188,21 +188,24 @@ export async function GET(request: NextRequest) {
     // ✅ APPLY PAGINATION AFTER SORTING
     const paginatedNotifications = notifications.slice(offset, offset + limit);
 
-    const totalUnread = (unreadComments[0]?.count || 0) + (unreadTestimonials[0]?.count || 0) + 
-                        (unreadReviews[0]?.count || 0) + (unreadContacts[0]?.count || 0);
+    const totalUnread =
+      ((unreadComments as any[])[0]?.count || 0) +
+      ((unreadTestimonials as any[])[0]?.count || 0) +
+      ((unreadReviews as any[])[0]?.count || 0) +
+      ((unreadContacts as any[])[0]?.count || 0);
 
     return NextResponse.json({
       counts: {
-        comments: commentsCount[0]?.count || 0,
-        testimonials: testimonialsCount[0]?.count || 0,
-        reviews: reviewsCount[0]?.count || 0,
-        contacts: contactsCount[0]?.count || 0,
+        comments: (commentsCount as any[])[0]?.count || 0,
+        testimonials: (testimonialsCount as any[])[0]?.count || 0,
+        reviews: (reviewsCount as any[])[0]?.count || 0,
+        contacts: (contactsCount as any[])[0]?.count || 0,
       },
       unreadCounts: {
-        comments: unreadComments[0]?.count || 0,
-        testimonials: unreadTestimonials[0]?.count || 0,
-        reviews: unreadReviews[0]?.count || 0,
-        contacts: unreadContacts[0]?.count || 0,
+        comments: (unreadComments as any[])[0]?.count || 0,
+        testimonials: (unreadTestimonials as any[])[0]?.count || 0,
+        reviews: (unreadReviews as any[])[0]?.count || 0,
+        contacts: (unreadContacts as any[])[0]?.count || 0,
       },
       totalUnread,
       total,

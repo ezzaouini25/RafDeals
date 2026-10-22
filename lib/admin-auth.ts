@@ -11,6 +11,7 @@ export interface AdminSessionUser {
   username: string;
   email: string;
   role: 'admin' | 'editor';
+  picture: string | null;
 }
 
 function encrypt(text: string): string {

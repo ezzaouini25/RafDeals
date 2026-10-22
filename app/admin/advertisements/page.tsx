@@ -10,6 +10,7 @@ import {
   X,
   AlertCircle,
   CheckCircle,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -22,24 +23,94 @@ import {
   Code,
 } from 'lucide-react';
 
-// Toast Component
-function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) {
+// ============================================================
+// TOAST (Sharp 0px corners, solid colors, and pure CSS countdown)
+// ============================================================
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info' | 'warning'; onClose: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onClose, 5000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const colors = {
-    success: 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400',
-    error: 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400',
-    info: 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
+  // Color schemes matching your layout
+  const styles = {
+    success: {
+      bg: 'bg-[#2ecc71]',
+      bar: 'bg-emerald-700/30',
+      title: 'Success!',
+      iconBg: 'bg-white text-[#2ecc71]',
+      icon: <Check size={18} strokeWidth={3} />,
+    },
+    error: {
+      bg: 'bg-[#e74c3c]',
+      bar: 'bg-rose-900/30',
+      title: 'Error!',
+      iconBg: 'bg-white text-[#e74c3c]',
+      icon: <X size={18} strokeWidth={3} />,
+    },
+    info: {
+      bg: 'bg-[#3498db]',
+      bar: 'bg-blue-900/30',
+      title: 'Info!',
+      iconBg: 'bg-white text-[#3498db]',
+      icon: <span className="font-bold text-lg italic">i</span>,
+    },
+    warning: {
+      bg: 'bg-[#f1c40f]',
+      bar: 'bg-amber-950/20',
+      title: 'Warning!',
+      iconBg: 'bg-white text-[#f1c40f]',
+      icon: <span className="font-bold text-lg">!</span>,
+    },
   };
 
-  const icons = {
-    success: <CheckCircle size={20} className="text-green-500" />,
-    error: <AlertCircle size={20} className="text-rose-500" />,
-    info: <AlertCircle size={20} className="text-blue-500" />,
-  };
+  const current = styles[type] || styles.info;
+
+  return (
+    <>
+      <style jsx>{`
+        @keyframes shrinkBar {
+          0% { width: 100%; }
+          100% { width: 0%; }
+        }
+        .animate-shrink {
+          animation: shrinkBar 5s linear forwards;
+        }
+      `}</style>
+      <div className={`fixed top-20 right-6 z-50 w-full max-w-md ${current.bg} text-white rounded-none shadow-2xl overflow-hidden flex flex-col`}>
+        {/* Main Content Area */}
+        <div className="p-4 flex items-start gap-4 relative">
+          {/* White circular icon container on the left */}
+          <div className={`w-9 h-9 rounded-full ${current.iconBg} flex items-center justify-center shrink-0 shadow-sm mt-0.5`}>
+            {current.icon}
+          </div>
+
+          {/* Text Content */}
+          <div className="flex-1 pr-6">
+            <h4 className="font-bold text-base tracking-wide mb-0.5">{current.title}</h4>
+            <p className="text-sm opacity-95 leading-relaxed">{message}</p>
+          </div>
+
+          {/* Close Button */}
+          <button 
+            onClick={onClose} 
+            className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors p-1"
+            aria-label="Close"
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* Bottom Countdown Line (Pure CSS Keyframe Animation) */}
+        <div className={`w-full h-1.5 ${current.bar} relative overflow-hidden`}>
+          <div className="absolute top-0 left-0 bottom-0 bg-white/50 animate-shrink" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+
 
   return (
     <div className={`fixed top-20 right-4 z-50 max-w-sm p-4 border ${colors[type]} flex items-start gap-3 shadow-lg animate-in slide-in-from-top-5 duration-300`}>

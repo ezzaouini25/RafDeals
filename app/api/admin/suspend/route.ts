@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
        FROM rate_limit_blocks
        ${whereClause}
        ORDER BY blocked_until ASC
-       LIMIT ? OFFSET ?`,
+       LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
       [...params, limit, offset]
     );
 

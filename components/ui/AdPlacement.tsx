@@ -14,7 +14,7 @@ interface Sponsor {
 }
 
 interface AdPlacementProps {
-placement: 'home' | 'blog' | 'offers' | 'article-content' | 'offer-content' | 'sidebar' | 'contact';
+  placement: 'home' | 'blog' | 'offers' | 'article-content' | 'offer-content' | 'sidebar' | 'contact';
   className?: string;
 }
 
@@ -100,19 +100,24 @@ function getDisplayDuration(isBoosted: boolean): number {
 }
 
 // ============================================================
-// FETCH WITH TIMEOUT
+// FETCH WITH TIMEOUT (Fixed to ignore AbortError)
 // ============================================================
 
 async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: number } = {}) {
   const { timeout = 5000, ...fetchOptions } = options;
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
+  
   try {
     const response = await fetch(url, { ...fetchOptions, signal: controller.signal });
     clearTimeout(id);
     return response;
-  } catch (error) {
+  } catch (error: any) {
     clearTimeout(id);
+    // ✅ Ignore the AbortError if the component unmounted (Strict Mode)
+    if (error.name === 'AbortError') {
+      return null;
+    }
     throw error;
   }
 }
@@ -159,7 +164,7 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
           { cache: 'no-store', timeout: 5000 }
         );
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res || !res.ok) throw new Error(`HTTP ${res?.status || 'Aborted'}`);
 
         const data = await res.json();
 
@@ -187,8 +192,11 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
             }
           }
         }
-      } catch (err) {
-        console.error('Ad fetch error:', err);
+      } catch (err: any) {
+        // ✅ Silently ignore errors caused by unmounting
+        if (err.name !== 'AbortError' && err.message !== 'HTTP Aborted') {
+          console.error('Ad fetch error:', err);
+        }
       } finally {
         if (isMounted.current) setLoading(false);
       }
@@ -236,7 +244,9 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sponsorId, placement }),
       });
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e); 
+    }
   }, [placement]);
 
   const trackClick = useCallback(async (sponsorId: number) => {
@@ -246,7 +256,9 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sponsorId, placement }),
       });
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e); 
+    }
   }, [placement]);
 
   // ============================================================

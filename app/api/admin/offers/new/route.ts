@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       FROM offers
       ${whereClause}
       ORDER BY created_at DESC
-      LIMIT ? OFFSET ?`,
+      LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
       [...params, limit, offset]
     );
 

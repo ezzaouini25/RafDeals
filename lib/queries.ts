@@ -7,21 +7,25 @@ import { Offer, Deal, Article, FAQ, LegalPage, Comment, Subscription, HomepageCo
 // ============================================================
 
 export const getCategories = cache(async (type?: 'offers' | 'articles' | 'deals'): Promise<Category[]> => {
-  let query = 'SELECT * FROM categories WHERE is_active = 1';
-  const params: any[] = [];
+  try {
+    // 1. Fetch all active categories in a single query and cache the result
+    const query = 'SELECT * FROM categories WHERE is_active = 1 ORDER BY name ASC';
+    const [rows] = await pool.execute(query);
+    const allCategories = rows as Category[];
 
-  if (type) {
-    query += ' AND (type = ? OR type = "both")';
-    params.push(type);
+    // 2. If a type was requested, filter in memory without hitting the database again
+    if (type) {
+      return allCategories.filter(
+        (c: any) => c.type === type || c.type === 'both'
+      );
+    }
+
+    return allCategories;
+  } catch (error) {
+    console.error('MySQL query failed in getCategories:', error);
+    return [];
   }
-
-  query += ' ORDER BY name ASC';
-
-  const [rows] = await pool.execute(query, params);
-  console.log(`✅ getCategories(${type}) returned:`, (rows as any[]).length, 'rows');
-  return rows as Category[];
 });
-
 
 export const getCategoryBySlug = cache(async (slug: string): Promise<Category | null> => {
   const [rows] = await pool.execute(
@@ -44,24 +48,24 @@ export const getCategoryById = cache(async (id: number): Promise<Category | null
 // ============================================================
 
 export const getFeaturedOffers = cache(async (limit = 6): Promise<Offer[]> => {
-  const [rows] = await pool.execute(
-    `SELECT 
-      o.*,
-      au.name as author_name,
-      au.picture as author_picture,
-      au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
-     FROM offers o
-     LEFT JOIN authors au ON o.author_id = au.id
-     LEFT JOIN categories c ON o.category_id = c.id
-     WHERE o.is_active = 1 AND o.is_boosted = 1 
-     ORDER BY o.created_at DESC 
-     LIMIT ?`,
-    [limit]
-  );
+  try {
+    const [rows] = await pool.execute(
+      `SELECT 
+        o.*,
+        au.name as author_name,
+        au.picture as author_picture,
+        au.bio as author_bio,
+        c.id as category_id,
+        c.name as category_name,
+        c.slug as category_slug,
+        c.type as category_type
+       FROM offers o
+       LEFT JOIN authors au ON o.author_id = au.id
+       LEFT JOIN categories c ON o.category_id = c.id
+       WHERE o.is_active = 1 
+       ORDER BY o.created_at DESC 
+       LIMIT ${Number(limit)}`
+    );
   
   return (rows as any[]).map(row => {
     const category = row.category_id ? {
@@ -78,7 +82,11 @@ export const getFeaturedOffers = cache(async (limit = 6): Promise<Offer[]> => {
       ...row,
       category
     };
-  }) as Offer[];
+    }) as Offer[];
+  } catch (error) {
+    console.error('❌ MySQL query failed in getFeaturedOffers:', error);
+    return [];
+  }
 });
 
 export const getAllOffers = cache(async (): Promise<Offer[]> => {
@@ -372,8 +380,8 @@ export const getLatestArticles = cache(async (limit = 6): Promise<Article[]> => 
      LEFT JOIN categories c ON a.category_id = c.id
      WHERE a.is_active = 1 
      ORDER BY a.is_boosted DESC, a.created_at DESC
-     LIMIT ?`,
-    [limit]
+     LIMIT ${Number(limit)}`
+    
   );
   
   return (rows as any[]).map(row => {
@@ -692,8 +700,7 @@ export const checkEmailExists = cache(async (email: string): Promise<boolean> =>
 
 export const getAllSubscriptions = cache(async (limit: number = 100): Promise<Subscription[]> => {
   const [rows] = await pool.execute(
-    'SELECT * FROM subscriptions ORDER BY created_at DESC LIMIT ?',
-    [limit]
+    `SELECT * FROM subscriptions ORDER BY created_at DESC LIMIT ${Number(limit)}`    
   );
   return rows as Subscription[];
 });
@@ -891,24 +898,24 @@ export const getAllArticleSlugs = cache(async (): Promise<{ slug: string }[]> =>
 // ============================================================
 
 export const getFeaturedDeals = cache(async (limit = 6): Promise<Deal[]> => {
-  const [rows] = await pool.execute(
-    `SELECT 
-      d.*,
-      au.name as author_name,
-      au.picture as author_picture,
-      au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
-     FROM deals d
-     LEFT JOIN authors au ON d.author_id = au.id
-     LEFT JOIN categories c ON d.category_id = c.id
-     WHERE d.is_active = 1 AND d.is_boosted = 1 
-     ORDER BY d.created_at DESC 
-     LIMIT ?`,
-    [limit]
-  );
+  try {
+    const [rows] = await pool.execute(
+      `SELECT 
+        d.*,
+        au.name as author_name,
+        au.picture as author_picture,
+        au.bio as author_bio,
+        c.id as category_id,
+        c.name as category_name,
+        c.slug as category_slug,
+        c.type as category_type
+       FROM deals d
+       LEFT JOIN authors au ON d.author_id = au.id
+       LEFT JOIN categories c ON d.category_id = c.id
+       WHERE d.is_active = 1 
+       ORDER BY d.created_at DESC 
+       LIMIT ${Number(limit)}`
+    );
   
   return (rows as any[]).map(row => {
     const category = row.category_id ? {
@@ -925,7 +932,11 @@ export const getFeaturedDeals = cache(async (limit = 6): Promise<Deal[]> => {
       ...row,
       category
     };
-  }) as Deal[];
+    }) as Deal[];
+  } catch (error) {
+    console.error('❌ MySQL query failed in getFeaturedDeals:', error);
+    return [];
+  }
 });
 
 export const getAllDeals = cache(async (): Promise<Deal[]> => {

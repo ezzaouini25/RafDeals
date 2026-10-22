@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       pages,
-      total: totalResult[0]?.total || 0,
+      total: (totalResult as any[])[0]?.total || 0,
     });
   } catch (error) {
     console.error('Error fetching legal pages:', error);

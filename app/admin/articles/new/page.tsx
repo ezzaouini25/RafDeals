@@ -27,7 +27,7 @@ import {
   Upload,
   Users,
   FolderOpen,
-  Eye as EyeIcon,
+  Image as ImageIcon, // ✅ Added
 } from 'lucide-react';
 
 // ✅ CKEditor imports
@@ -65,7 +65,7 @@ import readingTime from 'reading-time';
 import ArticleEditorToolbar from '@/components/admin/ArticleEditorToolbar';
 
 // ============================================================
-// TOAST (Sharp 0px corners, solid colors, and pure CSS countdown)
+// TOAST
 // ============================================================
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info' | 'warning'; onClose: () => void }) {
   useEffect(() => {
@@ -73,7 +73,6 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  // Color schemes matching your layout
   const styles = {
     success: {
       bg: 'bg-[#2ecc71]',
@@ -119,30 +118,18 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
         }
       `}</style>
       <div className={`fixed top-20 right-6 z-50 w-full max-w-md ${current.bg} text-white rounded-none shadow-2xl overflow-hidden flex flex-col`}>
-        {/* Main Content Area */}
         <div className="p-4 flex items-start gap-4 relative">
-          {/* White circular icon container on the left */}
           <div className={`w-9 h-9 rounded-full ${current.iconBg} flex items-center justify-center shrink-0 shadow-sm mt-0.5`}>
             {current.icon}
           </div>
-
-          {/* Text Content */}
           <div className="flex-1 pr-6">
             <h4 className="font-bold text-base tracking-wide mb-0.5">{current.title}</h4>
             <p className="text-sm opacity-95 leading-relaxed">{message}</p>
           </div>
-
-          {/* Close Button */}
-          <button 
-            onClick={onClose} 
-            className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors p-1"
-            aria-label="Close"
-          >
+          <button onClick={onClose} className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors p-1" aria-label="Close">
             <X size={16} strokeWidth={2.5} />
           </button>
         </div>
-
-        {/* Bottom Countdown Line (Pure CSS Keyframe Animation) */}
         <div className={`w-full h-1.5 ${current.bar} relative overflow-hidden`}>
           <div className="absolute top-0 left-0 bottom-0 bg-white/50 animate-shrink" />
         </div>
@@ -437,6 +424,12 @@ export default function CreateArticlePage() {
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
 
+  // ✅ Media Library States
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [mediaImages, setMediaImages] = useState<string[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [mediaInsertType, setMediaInsertType] = useState<'cover' | 'content'>('cover');
+
   // CKEditor instance ref (used by ArticleEditorToolbar to insert [offer:ID] / [deal:ID])
   const editorRef = useRef<any>(null);
 
@@ -468,8 +461,6 @@ export default function CreateArticlePage() {
     const fetchFilterOptions = async () => {
       try {
         setFilterLoading(true);
-
-        // Fetch categories (only articles or both)
         const catRes = await fetch('/api/admin/categories');
         if (catRes.ok) {
           const catData = await catRes.json();
@@ -478,8 +469,6 @@ export default function CreateArticlePage() {
           );
           setCategories(filtered);
         }
-
-        // Fetch authors
         const authRes = await fetch('/api/admin/authors');
         if (authRes.ok) {
           const authData = await authRes.json();
@@ -499,10 +488,48 @@ export default function CreateArticlePage() {
   };
 
   const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  };
+
+  // ✅ فتح مكتبة الصور
+  const openMediaLibrary = async (type: 'cover' | 'content') => {
+    setMediaInsertType(type);
+    setIsMediaModalOpen(true);
+    setLoadingImages(true);
+    try {
+      const res = await fetch('/api/admin/media?folder=articles');
+      const data = await res.json();
+      setMediaImages(data.images || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingImages(false);
+    }
+  };
+
+  // ✅ حذف صورة
+  const handleDeleteImage = async (e: React.MouseEvent, url: string) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this image permanently?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/media/delete?url=${encodeURIComponent(url)}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await res.json();
+
+      if (res.ok) {
+        setMediaImages((prev) => prev.filter((img) => img !== url));
+        showToast('Image deleted successfully', 'success');
+      } else {
+        console.error('Delete failed:', data.error);
+        showToast(data.error || 'Failed to delete image', 'error');
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast('Error connecting to server', 'error');
+    }
   };
 
   // Handle Cover Image Upload
@@ -510,21 +537,12 @@ export default function CreateArticlePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      showToast('Please upload an image file', 'error');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('Image too large. Max 5MB allowed', 'error');
-      return;
-    }
+    if (!file.type.startsWith('image/')) { showToast('Please upload an image file', 'error'); return; }
+    if (file.size > 5 * 1024 * 1024) { showToast('Image too large. Max 5MB allowed', 'error'); return; }
 
     setCoverImageFile(file);
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setCoverImagePreview(reader.result as string);
-    };
+    reader.onloadend = () => { setCoverImagePreview(reader.result as string); };
     reader.readAsDataURL(file);
   };
 
@@ -538,22 +556,14 @@ export default function CreateArticlePage() {
   // Upload Cover Image to Server
   const uploadCoverImage = async (): Promise<string | null> => {
     if (!coverImageFile) return null;
-
     try {
       const uploadFormData = new FormData();
       uploadFormData.append('file', coverImageFile);
       uploadFormData.append('type', 'articles');
 
-      const res = await fetch('/api/admin/upload', {
-        method: 'POST',
-        body: uploadFormData,
-      });
-
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadFormData });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
       return data.url;
     } catch (error) {
       showToast('Failed to upload cover image', 'error');
@@ -579,62 +589,23 @@ export default function CreateArticlePage() {
 
   // Initialize CKEditor
   useEffect(() => {
-    if (ClassicEditor) {
-      setIsEditorReady(true);
-    }
+    if (ClassicEditor) { setIsEditorReady(true); }
   }, []);
 
-  // EDITOR CONFIG
   const editorConfig = {
     licenseKey: 'GPL',
     plugins: [
-      Essentials,
-      Bold,
-      Italic,
-      Underline,
-      Strikethrough,
-      Heading,
-      List,
-      BlockQuote,
-      CKLink,
-      CKImage,
-      ImageToolbar,
-      ImageCaption,
-      ImageStyle,
-      ImageInsert,
-      Table,
-      TableToolbar,
-      Alignment,
-      Undo,
-      RemoveFormat,
-      Paragraph,
+      Essentials, Bold, Italic, Underline, Strikethrough, Heading, List, BlockQuote,
+      CKLink, CKImage, ImageToolbar, ImageCaption, ImageStyle, ImageInsert, Table,
+      TableToolbar, Alignment, Undo, RemoveFormat, Paragraph,
     ],
-    // ✅ Upload adapter must live here (not in `plugins[]`)
     extraPlugins: [CustomUploadAdapterPlugin],
     toolbar: {
       items: [
-        'heading',
-        '|',
-        'bold',
-        'italic',
-        'underline',
-        'strikethrough',
-        '|',
-        'bulletedList',
-        'numberedList',
-        '|',
-        'blockQuote',
-        'link',
-        '|',
-        'insertImage',
-        'insertTable',
-        '|',
-        'alignment',
-        '|',
-        'undo',
-        'redo',
-        '|',
-        'removeFormat',
+        'heading', '|', 'bold', 'italic', 'underline', 'strikethrough', '|',
+        'bulletedList', 'numberedList', '|', 'blockQuote', 'link', '|',
+        'insertImage', 'insertTable', '|', 'alignment', '|',
+        'undo', 'redo', '|', 'removeFormat',
       ],
     },
     heading: {
@@ -646,54 +617,34 @@ export default function CreateArticlePage() {
         { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' },
       ] as any,
     },
-    alignment: {
-      options: ['left', 'center', 'right', 'justify'] as any,
-    },
-    image: {
-      toolbar: ['imageStyle:block', 'imageStyle:side', '|', 'imageTextAlternative'],
-    },
-    table: {
-      contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells'],
-    },
+    alignment: { options: ['left', 'center', 'right', 'justify'] as any },
+    image: { toolbar: ['imageStyle:block', 'imageStyle:side', '|', 'imageTextAlternative'] },
+    table: { contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells'] },
     placeholder: 'Write your article content here...',
   };
 
-  // ============================================================
-  // HANDLE SUBMIT
-  // ============================================================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     if (!formData.title || !formData.slug || !formData.content) {
-      showToast('Title, slug, and content are required', 'error');
-      setLoading(false);
-      return;
+      showToast('Title, slug, and content are required', 'error'); setLoading(false); return;
     }
-
     if (!formData.category_id) {
-      showToast('Please select a category', 'error');
-      setLoading(false);
-      return;
+      showToast('Please select a category', 'error'); setLoading(false); return;
     }
-
     if (!formData.author_id) {
-      showToast('Please select an author', 'error');
-      setLoading(false);
-      return;
+      showToast('Please select an author', 'error'); setLoading(false); return;
     }
 
     try {
       let coverImageUrl = formData.cover_image;
       if (coverImageFile) {
         const uploadedUrl = await uploadCoverImage();
-        if (uploadedUrl) {
-          coverImageUrl = uploadedUrl;
-        }
+        if (uploadedUrl) coverImageUrl = uploadedUrl;
       }
 
       const submitData = new FormData();
-      
       submitData.append('title', formData.title);
       submitData.append('slug', formData.slug);
       submitData.append('description', formData.description || '');
@@ -704,23 +655,14 @@ export default function CreateArticlePage() {
       submitData.append('cover_image', coverImageUrl || '');
       submitData.append('category_id', String(formData.category_id));
       submitData.append('author_id', String(formData.author_id));
-      
-      const viewsValue = formData.views ?? 0;
-      submitData.append('views', String(viewsValue));
-      
+      submitData.append('views', String(formData.views ?? 0));
       submitData.append('is_active', String(formData.is_active));
       submitData.append('is_boosted', String(formData.is_boosted));
 
-      const res = await fetch('/api/admin/articles', {
-        method: 'POST',
-        body: submitData,
-      });
-
+      const res = await fetch('/api/admin/articles', { method: 'POST', body: submitData });
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create article');
-      }
+      if (!res.ok) throw new Error(data.error || 'Failed to create article');
 
       showToast(`Article created successfully!`, 'success');
       setTimeout(() => router.push('/admin/articles'), 3000);
@@ -731,50 +673,20 @@ export default function CreateArticlePage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    if (status === 'success') return 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5';
-    if (status === 'warning') return 'text-amber-400 border-amber-500/20 bg-amber-500/5';
-    return 'text-rose-400 border-rose-500/20 bg-rose-500/5';
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-400';
-    if (score >= 50) return 'text-amber-400';
-    return 'text-rose-400';
-  };
-
-  const getScoreBg = (score: number) => {
-    if (score >= 80) return 'bg-emerald-500';
-    if (score >= 50) return 'bg-amber-500';
-    return 'bg-rose-500';
-  };
-
-  const getScoreLabel = (score: number) => {
-    if (score >= 80) return 'Excellent';
-    if (score >= 60) return 'Good';
-    if (score >= 40) return 'Needs Improvement';
-    return 'Poor';
-  };
-
-  const getStatusIcon = (status: string) => {
-    if (status === 'success') return <CircleCheck size={16} className="text-emerald-400 shrink-0" />;
-    if (status === 'warning') return <CircleAlert size={16} className="text-amber-400 shrink-0" />;
-    return <Circle size={16} className="text-rose-400 shrink-0" />;
-  };
+  const getStatusColor = (status: string) => status === 'success' ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : status === 'warning' ? 'text-amber-400 border-amber-500/20 bg-amber-500/5' : 'text-rose-400 border-rose-500/20 bg-rose-500/5';
+  const getScoreColor = (score: number) => score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-rose-400';
+  const getScoreBg = (score: number) => score >= 80 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+  const getScoreLabel = (score: number) => score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Needs Improvement' : 'Poor';
+  const getStatusIcon = (status: string) => status === 'success' ? <CircleCheck size={16} className="text-emerald-400 shrink-0" /> : status === 'warning' ? <CircleAlert size={16} className="text-amber-400 shrink-0" /> : <Circle size={16} className="text-rose-400 shrink-0" />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link
-            href="/admin/articles"
-            className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-          >
+          <Link href="/admin/articles" className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
             <ArrowLeft size={20} />
           </Link>
           <div>
@@ -787,12 +699,7 @@ export default function CreateArticlePage() {
             </p>
           </div>
         </div>
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50"
-        >
+        <button onClick={handleSubmit} disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {loading ? 'Saving...' : 'Publish Article'}
         </button>
@@ -807,184 +714,107 @@ export default function CreateArticlePage() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
-                  Title *
-                </label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Title *</label>
                 <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      title: e.target.value,
-                      slug: formData.slug || generateSlug(e.target.value),
-                      meta_title: formData.meta_title || e.target.value,
-                    });
-                  }}
+                  type="text" required value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value, slug: formData.slug || generateSlug(e.target.value), meta_title: formData.meta_title || e.target.value })}
                   placeholder="Enter article title..."
                   className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                 />
-                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
-                  {formData.title.length}/255 characters
-                </div>
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">{formData.title.length}/255 characters</div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
-                  Slug *
-                </label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Slug *</label>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <span className="text-slate-500 dark:text-white/30 text-sm shrink-0 hidden sm:block">/blog/</span>
                   <input
-                    type="text"
-                    required
-                    value={formData.slug}
+                    type="text" required value={formData.slug}
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                     placeholder="article-url-slug"
                     className="flex-1 px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, slug: generateSlug(formData.title) })}
-                    className="px-4 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors whitespace-nowrap"
-                  >
+                  <button type="button" onClick={() => setFormData({ ...formData, slug: generateSlug(formData.title) })} className="px-4 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors whitespace-nowrap">
                     Generate
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
-                  Description (Meta Description)
-                </label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Description (Meta Description)</label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      description: e.target.value,
-                      meta_description: formData.meta_description || e.target.value,
-                    });
-                  }}
-                  rows={3}
-                  placeholder="Brief description of your article (used for SEO)"
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value, meta_description: formData.meta_description || e.target.value })}
+                  rows={3} placeholder="Brief description of your article (used for SEO)"
                   className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors resize-y"
                 />
-                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
-                  {formData.description.length}/500 characters
-                </div>
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">{formData.description.length}/500 characters</div>
               </div>
 
-              {/* Category + Author */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5 flex items-center gap-2">
-                    <FolderOpen size={14} />
-                    Category *
+                    <FolderOpen size={14} /> Category *
                   </label>
                   <select
-                    value={formData.category_id}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                    required
+                    value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors" required
                   >
                     <option value="">Select a category...</option>
-                    {filterLoading ? (
-                      <option value="" disabled>Loading categories...</option>
-                    ) : categories.length === 0 ? (
-                      <option value="" disabled>No categories available</option>
-                    ) : (
-                      categories.map((cat) => (
-                        <option key={cat.id} value={String(cat.id)}>
-                          {cat.name} {cat.type === 'both' ? '(Both)' : ''}
-                        </option>
-                      ))
-                    )}
+                    {filterLoading ? <option value="" disabled>Loading categories...</option> : categories.length === 0 ? <option value="" disabled>No categories available</option> : categories.map((cat) => (
+                      <option key={cat.id} value={String(cat.id)}>{cat.name} {cat.type === 'both' ? '(Both)' : ''}</option>
+                    ))}
                   </select>
-                  {filterLoading && (
-                    <div className="mt-1 text-xs text-slate-400 dark:text-white/30 flex items-center gap-1">
-                      <Loader2 size={12} className="animate-spin" />
-                      Loading categories...
-                    </div>
-                  )}
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5 flex items-center gap-2">
-                    <Users size={14} />
-                    Author *
+                    <Users size={14} /> Author *
                   </label>
                   <select
-                    value={formData.author_id}
-                    onChange={(e) => setFormData({ ...formData, author_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                    required
+                    value={formData.author_id} onChange={(e) => setFormData({ ...formData, author_id: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors" required
                   >
                     <option value="">Select an author...</option>
-                    {filterLoading ? (
-                      <option value="" disabled>Loading authors...</option>
-                    ) : authors.length === 0 ? (
-                      <option value="" disabled>No authors available</option>
-                    ) : (
-                      authors.map((author) => (
-                        <option key={author.id} value={String(author.id)}>
-                          {author.name}
-                        </option>
-                      ))
-                    )}
+                    {filterLoading ? <option value="" disabled>Loading authors...</option> : authors.length === 0 ? <option value="" disabled>No authors available</option> : authors.map((author) => (
+                      <option key={author.id} value={String(author.id)}>{author.name}</option>
+                    ))}
                   </select>
-                  {filterLoading && (
-                    <div className="mt-1 text-xs text-slate-400 dark:text-white/30 flex items-center gap-1">
-                      <Loader2 size={12} className="animate-spin" />
-                      Loading authors...
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* Cover Image Upload */}
+              {/* ✅ Cover Image Upload + Browse */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
-                  Cover Image
-                </label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Cover Image</label>
                 <div className="flex flex-col items-center justify-center w-full">
                   {coverImagePreview ? (
                     <div className="relative w-full">
                       <div className="relative w-full aspect-video max-h-[300px] border border-slate-200 dark:border-white/10 overflow-hidden">
-                        <Image
-                          src={coverImagePreview}
-                          alt="Cover preview"
-                          fill
-                          className="object-cover"
-                        />
+                        <Image src={coverImagePreview} alt="Cover preview" fill className="object-cover" />
                       </div>
-                      <button
-                        type="button"
-                        onClick={removeCoverImage}
-                        className="absolute top-2 right-2 p-1.5 bg-rose-500/90 hover:bg-rose-600 text-white transition-colors"
-                      >
+                      <button type="button" onClick={removeCoverImage} className="absolute top-2 right-2 p-1.5 bg-rose-500/90 hover:bg-rose-600 text-white transition-colors">
                         <Trash2 size={16} />
                       </button>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 dark:border-white/20 cursor-pointer hover:border-yellow/50 transition-colors bg-slate-50 dark:bg-white/5">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload size={32} className="text-slate-400 dark:text-white/30 mb-2" />
-                        <p className="mb-2 text-sm text-slate-500 dark:text-white/40">
-                          <span className="font-semibold">Click to upload</span> or drag and drop
-                        </p>
-                        <p className="text-xs text-slate-400 dark:text-white/30">
-                          PNG, JPG, WebP (max 5MB)
-                        </p>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleCoverImageUpload}
-                        className="hidden"
-                      />
-                    </label>
+                    <div className="w-full flex flex-col gap-3">
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-white/20 cursor-pointer hover:border-yellow/50 transition-colors bg-slate-50 dark:bg-white/5">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <Upload size={32} className="text-slate-400 dark:text-white/30 mb-2" />
+                          <p className="mb-2 text-sm text-slate-500 dark:text-white/40"><span className="font-semibold">Click to upload</span></p>
+                          <p className="text-xs text-slate-400 dark:text-white/30">Auto-compressed to WebP</p>
+                        </div>
+                        <input type="file" accept="image/*" onChange={handleCoverImageUpload} className="hidden" />
+                      </label>
+                      
+                      <button
+                        type="button" onClick={() => openMediaLibrary('cover')}
+                        className="w-full py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <ImageIcon size={16} />
+                        Browse Cover Image
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -995,128 +825,79 @@ export default function CreateArticlePage() {
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Content *</h2>
 
-            {/* ✅ Insert Offer + Insert Deal toolbar */}
             <ArticleEditorToolbar
               getEditor={() => editorRef.current}
-              onInserted={(offer) =>
-                showToast(`Inserted offer: ${offer.title}`, 'success')
-              }
-              onDealInserted={(deal) =>
-                showToast(`Inserted deal: ${deal.title}`, 'success')
-              }
+              onInserted={(offer) => showToast(`Inserted offer: ${offer.title}`, 'success')}
+              onDealInserted={(deal) => showToast(`Inserted deal: ${deal.title}`, 'success')}
             />
+
+            {/* ✅ زر إدراج صورة في المحتوى من المكتبة */}
+            <div className="mb-4 mt-2">
+              <button
+                type="button"
+                onClick={() => openMediaLibrary('content')}
+                className="px-4 py-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-white text-sm font-bold border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors flex items-center gap-2"
+              >
+                <ImageIcon size={16} />
+                Insert Image from Library
+              </button>
+            </div>
 
             <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
               {isEditorReady ? (
                 <CKEditor
-                  editor={ClassicEditor}
-                  config={editorConfig}
-                  data={formData.content}
-                  onReady={(editor: any) => {
-                    editorRef.current = editor;
-                  }}
-                  onChange={(event: any, editor: any) => {
-                    const data = editor.getData();
-                    setFormData({ ...formData, content: data });
-                  }}
+                  editor={ClassicEditor} config={editorConfig} data={formData.content}
+                  onReady={(editor: any) => { editorRef.current = editor; }}
+                  onChange={(event: any, editor: any) => { setFormData({ ...formData, content: editor.getData() }); }}
                 />
               ) : (
                 <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
-                  <Loader2 size={24} className="animate-spin text-yellow mr-2" />
-                  Loading editor...
+                  <Loader2 size={24} className="animate-spin text-yellow mr-2" /> Loading editor...
                 </div>
               )}
             </div>
             {isUploading && (
               <div className="mt-2 flex items-center gap-2 text-sm text-yellow">
-                <Loader2 size={16} className="animate-spin" />
-                Uploading image...
+                <Loader2 size={16} className="animate-spin" /> Uploading image...
               </div>
             )}
-            <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
-              Use the editor toolbar to format text, add images, tables, and more.
-            </div>
           </div>
         </div>
 
         {/* SIDEBAR */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Mobile Tabs */}
           <div className="flex sm:hidden gap-1 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-1">
-            <button
-              onClick={() => setActiveTab('seo')}
-              className={`flex-1 py-2 text-xs font-bold transition-colors ${
-                activeTab === 'seo'
-                  ? 'bg-yellow text-slate-950'
-                  : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'
-              }`}
-            >
-              SEO
-            </button>
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`flex-1 py-2 text-xs font-bold transition-colors ${
-                activeTab === 'settings'
-                  ? 'bg-yellow text-slate-950'
-                  : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'
-              }`}
-            >
-              Settings
-            </button>
-            <button
-              onClick={() => setActiveTab('meta')}
-              className={`flex-1 py-2 text-xs font-bold transition-colors ${
-                activeTab === 'meta'
-                  ? 'bg-yellow text-slate-950'
-                  : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white'
-              }`}
-            >
-              Meta
-            </button>
+            <button onClick={() => setActiveTab('seo')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'seo' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40'}`}>SEO</button>
+            <button onClick={() => setActiveTab('settings')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'settings' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40'}`}>Settings</button>
+            <button onClick={() => setActiveTab('meta')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'meta' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40'}`}>Meta</button>
           </div>
 
           {/* SEO Analysis */}
           <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'seo' ? 'block' : 'hidden sm:block'}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <TrendingUp size={18} className="text-yellow" />
-                SEO Analysis
+                <TrendingUp size={18} className="text-yellow" /> SEO Analysis
               </h2>
               {seoResults && (
                 <div className="text-right">
-                  <span className={`text-2xl font-bold ${getScoreColor(seoResults.score)}`}>
-                    {seoResults.score}/100
-                  </span>
-                  <div className={`text-xs font-medium ${getScoreColor(seoResults.score)}`}>
-                    {getScoreLabel(seoResults.score)}
-                  </div>
+                  <span className={`text-2xl font-bold ${getScoreColor(seoResults.score)}`}>{seoResults.score}/100</span>
+                  <div className={`text-xs font-medium ${getScoreColor(seoResults.score)}`}>{getScoreLabel(seoResults.score)}</div>
                 </div>
               )}
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
-                Focus Keyword
-              </label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Focus Keyword</label>
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={focusKeyword}
-                  onChange={(e) => setFocusKeyword(e.target.value)}
-                  placeholder="Enter focus keyword..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                />
+                <input type="text" value={focusKeyword} onChange={(e) => setFocusKeyword(e.target.value)} placeholder="Enter focus keyword..." className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors" />
               </div>
             </div>
 
             {seoResults ? (
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                 {seoResults.checks.map((check: any, index: number) => (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-2 p-2 text-sm border ${getStatusColor(check.status)}`}
-                  >
+                  <div key={index} className={`flex items-start gap-2 p-2 text-sm border ${getStatusColor(check.status)}`}>
                     {getStatusIcon(check.status)}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
@@ -1142,16 +923,11 @@ export default function CreateArticlePage() {
             {seoResults && (
               <div className="mt-4">
                 <div className="w-full bg-slate-200 dark:bg-white/10 h-2">
-                  <div
-                    className={`h-2 transition-all duration-500 ${getScoreBg(seoResults.score)}`}
-                    style={{ width: `${seoResults.score}%` }}
-                  />
+                  <div className={`h-2 transition-all duration-500 ${getScoreBg(seoResults.score)}`} style={{ width: `${seoResults.score}%` }} />
                 </div>
                 <div className="mt-1 flex justify-between text-xs">
                   <span className="text-slate-400 dark:text-white/30">0</span>
-                  <span className={`font-medium ${getScoreColor(seoResults.score)}`}>
-                    {getScoreLabel(seoResults.score)}
-                  </span>
+                  <span className={`font-medium ${getScoreColor(seoResults.score)}`}>{getScoreLabel(seoResults.score)}</span>
                   <span className="text-slate-400 dark:text-white/30">100</span>
                 </div>
               </div>
@@ -1161,27 +937,12 @@ export default function CreateArticlePage() {
           {/* Publish Settings */}
           <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'settings' ? 'block' : 'hidden sm:block'}`}>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Publish Settings</h2>
-            
             <div className="space-y-3">
               <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/70 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                  className="w-4 h-4 accent-yellow"
-                />
-                Published (Active)
+                <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })} className="w-4 h-4 accent-yellow" /> Published (Active)
               </label>
-
               <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/70 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.is_boosted}
-                  onChange={(e) => setFormData({ ...formData, is_boosted: e.target.checked })}
-                  className="w-4 h-4 accent-yellow"
-                />
-                <Sparkles size={14} className="text-yellow" />
-                Featured (Boosted)
+                <input type="checkbox" checked={formData.is_boosted} onChange={(e) => setFormData({ ...formData, is_boosted: e.target.checked })} className="w-4 h-4 accent-yellow" /> <Sparkles size={14} className="text-yellow" /> Featured (Boosted)
               </label>
             </div>
           </div>
@@ -1189,57 +950,22 @@ export default function CreateArticlePage() {
           {/* Meta Tags */}
           <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'meta' ? 'block' : 'hidden sm:block'}`}>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <Tag size={18} className="text-yellow" />
-              Meta Tags & Settings
+              <Tag size={18} className="text-yellow" /> Meta Tags & Settings
             </h2>
-
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
-                  Meta Title
-                </label>
-                <input
-                  type="text"
-                  value={formData.meta_title}
-                  onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
-                  placeholder="SEO title (leave blank to use article title)"
-                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                />
-                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
-                  {formData.meta_title.length}/150 characters
-                </div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Meta Title</label>
+                <input type="text" value={formData.meta_title} onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })} placeholder="SEO title" className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors" />
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">{formData.meta_title.length}/150 characters</div>
               </div>
-
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
-                  Meta Description
-                </label>
-                <textarea
-                  value={formData.meta_description}
-                  onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
-                  rows={2}
-                  placeholder="SEO description (120-160 chars)"
-                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors resize-y"
-                />
-                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
-                  {formData.meta_description.length}/160 characters
-                </div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Meta Description</label>
+                <textarea value={formData.meta_description} onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })} rows={2} placeholder="SEO description (120-160 chars)" className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors resize-y" />
+                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">{formData.meta_description.length}/160 characters</div>
               </div>
-
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">
-                  Meta Keywords
-                </label>
-                <input
-                  type="text"
-                  value={formData.meta_keywords}
-                  onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })}
-                  placeholder="keyword1, keyword2, keyword3"
-                  className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                />
-                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
-                  Comma separated keywords
-                </div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Meta Keywords</label>
+                <input type="text" value={formData.meta_keywords} onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })} placeholder="keyword1, keyword2" className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors" />
               </div>
             </div>
           </div>
@@ -1250,18 +976,85 @@ export default function CreateArticlePage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-700 dark:text-white/60">SEO Score</span>
                 <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 flex items-center justify-center text-xl font-bold ${getScoreColor(seoResults.score)} border-2 ${getScoreBg(seoResults.score)}/20`}>
-                    {seoResults.score}
-                  </div>
-                  <span className={`text-sm font-medium ${getScoreColor(seoResults.score)}`}>
-                    {getScoreLabel(seoResults.score)}
-                  </span>
+                  <div className={`w-12 h-12 flex items-center justify-center text-xl font-bold ${getScoreColor(seoResults.score)} border-2 ${getScoreBg(seoResults.score)}/20`}>{seoResults.score}</div>
+                  <span className={`text-sm font-medium ${getScoreColor(seoResults.score)}`}>{getScoreLabel(seoResults.score)}</span>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* ✅ Media Library Popup Modal */}
+      {isMediaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/10">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                <ImageIcon size={20} className="text-yellow" /> Select Image for {mediaInsertType === 'cover' ? 'Cover' : 'Content'}
+              </h3>
+              <button onClick={() => setIsMediaModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 min-h-[300px]">
+              {loadingImages ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <Loader2 size={32} className="animate-spin text-yellow mb-2" />
+                  <p>Loading images...</p>
+                </div>
+              ) : mediaImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <ImageIcon size={48} className="mb-2 opacity-30" />
+                  <p>No images in this folder yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                  {mediaImages.map((img) => (
+                    <div
+                      key={img}
+                      className="group relative aspect-square border border-slate-200 dark:border-white/10 hover:border-yellow transition-colors overflow-hidden bg-slate-100 dark:bg-white/5"
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteImage(e, img)}
+                        className="absolute top-2 left-2 z-10 p-1.5 bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600 rounded-sm shadow-md"
+                        title="Delete Image"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (mediaInsertType === 'cover') {
+                            setFormData({ ...formData, cover_image: img });
+                            setCoverImagePreview(img);
+                          } else {
+                            if (editorRef.current) {
+                              editorRef.current.model.change((writer: any) => {
+                                const imageElement = writer.createElement('imageBlock', {
+                                  src: img,
+                                });
+                                editorRef.current.model.insertContent(
+                                  imageElement,
+                                  editorRef.current.model.document.selection
+                                );
+                              });
+                            }
+                          }
+                          setIsMediaModalOpen(false);
+                        }}
+                        className="w-full h-full"
+                      >
+                        <img src={img} alt="Media" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1521,12 +1521,12 @@ export default function AdminDashboard() {
             title="Deals Traffic & Click Rates"
             icon={Tag}
             iconColor="text-amber-500"
-            accent="#f97316"
+            accent="#0f2ac3"
             data={data.weeklyDeals}
             dataKey1="views"
             dataKey2="clicks"
-            color1={palette.deals}
-            color2="#fbbf24"
+            color1="#050da3"
+            color2="#fc9700"
             label1="Views"
             label2="Clicks"
             showClicks

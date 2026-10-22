@@ -7,6 +7,7 @@ export interface AdminUser {
   email: string;
   password?: string;
   role: 'admin' | 'editor' | 'user';
+  picture: string | null;
   is_active: boolean | number;
   is_blocked: boolean | number;
   created_at: string;
@@ -36,6 +37,27 @@ export async function dbGetUserByIdentifier(identifier: string): Promise<AdminUs
   }
 }
 
+// Get user by ID (used by /api/admin/auth/me to return the fresh picture)
+export async function dbGetUserById(id: number): Promise<AdminUser | null> {
+  if (!isDbConfigured()) {
+    console.error('Database not configured');
+    return null;
+  }
+  try {
+    const mysqlPool = getMysqlPool();
+    const [rows] = await mysqlPool.execute(
+      'SELECT id, name, username, email, role, picture, is_active, is_blocked, created_at FROM users WHERE id = ? LIMIT 1',
+      [id]
+    );
+    const users = rows as any[];
+    if (users.length === 0) return null;
+    return users[0] as AdminUser;
+  } catch (error) {
+    console.error('Error fetching user by id:', error);
+    return null;
+  }
+}
+
 // Get only active users (for admin lists)
 export async function dbGetActiveUsers(): Promise<AdminUser[]> {
   if (!isDbConfigured()) {
@@ -45,7 +67,7 @@ export async function dbGetActiveUsers(): Promise<AdminUser[]> {
   try {
     const mysqlPool = getMysqlPool();
     const [rows] = await mysqlPool.execute(
-      'SELECT id, name, username, email, role, is_active, is_blocked, created_at FROM users WHERE is_active = 1 AND is_blocked = 0 ORDER BY created_at DESC'
+      'SELECT id, name, username, email, role, is_active, picture, is_blocked, created_at FROM users WHERE is_active = 1 AND is_blocked = 0 ORDER BY created_at DESC'
     );
     return rows as AdminUser[];
   } catch (error) {
@@ -63,7 +85,7 @@ export async function dbGetUsers(): Promise<AdminUser[]> {
   try {
     const mysqlPool = getMysqlPool();
     const [rows] = await mysqlPool.execute(
-      'SELECT id, name, username, email, role, is_active, is_blocked, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, name, username, email, role, is_active, picture, is_blocked, created_at FROM users ORDER BY created_at DESC'
     );
     return rows as AdminUser[];
   } catch (error) {

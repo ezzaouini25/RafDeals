@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
        FROM subscriptions
        ${whereClause}
        ORDER BY created_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
       [...params, limit, offset]
     );
 
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       subscriptions,
-      total: totalResult[0]?.total || 0,
-      totalPages: Math.ceil((totalResult[0]?.total || 0) / limit),
+      total: (totalResult as any[])[0]?.total || 0,
+      totalPages: Math.ceil(((totalResult as any[])[0]?.total || 0) / limit),
       page,
     });
   } catch (error) {

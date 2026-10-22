@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import sharp from 'sharp'; // ✅ أضفنا هذه المكتبة للضغط
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,7 +9,7 @@ export async function POST(request: NextRequest) {
     
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const type = formData.get('type') as string || 'legal-pages'; // 'legal-pages' or 'articles'
+    const type = formData.get('type') as string || 'legal-pages';
 
     if (!file) {
       console.error('❌ No file uploaded');
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     console.log('📁 File received:', file.name, 'Size:', file.size, 'Type:', file.type);
 
-    // Check file type
+    // التحقق من نوع الملف (كما كان في كودك الأصلي)
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
     if (!allowedTypes.includes(file.type)) {
       console.error('❌ Invalid file type:', file.type);
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check file size (max 5MB)
+    // التحقق من حجم الملف (الحد الأقصى 5 ميجابايت)
     if (file.size > 5 * 1024 * 1024) {
       console.error('❌ File too large:', file.size);
       return NextResponse.json(
@@ -39,27 +40,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique filename
+    // تحويل الملف إلى Buffer لمعالجته
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // ✅ الضغط والتحويل إلى WebP
+    // ملاحظة: ملفات SVG لا يمكن ضغطها بـ sharp، لذلك نتركها كما هي
+    let finalBuffer = buffer;
+    let extension = '.webp';
+
+    if (file.type !== 'image/svg+xml') {
+      finalBuffer = await sharp(buffer)
+        .resize({ width: 1200, withoutEnlargement: true }) // الحد الأقصى للعرض 1200 بكسل
+        .webp({ quality: 80 }) // تحويل إلى WebP
+        .toBuffer();
+    } else {
+      extension = path.extname(file.name); // نحتفظ بامتداد الـ SVG
+    }
+
+    // إنشاء اسم فريد للملف
     const timestamp = Date.now();
     const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-    const extension = path.extname(cleanName);
-    const filename = `${type}_${timestamp}${extension}`;
+    // إذا تحول إلى webp نغير الامتداد، وإلا نستخدم الاسم الأصلي
+    const baseName = path.parse(cleanName).name;
+    const filename = `${type}_${timestamp}_${baseName}${extension}`;
     
-    // Save to public/uploads/{type}/
+    // حفظ الملف في مجلد public/uploads/{type}/
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
     await mkdir(uploadDir, { recursive: true });
     
     const filePath = path.join(uploadDir, filename);
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
+    await writeFile(filePath, finalBuffer);
 
-    console.log('✅ File saved:', filePath);
+    console.log('✅ File saved and optimized:', filePath);
 
-    // Return the public URL
+    // إرجاع رابط الصورة
     const imageUrl = `/uploads/${type}/${filename}`;
     
-    // ✅ CKEditor expects this exact format
     return NextResponse.json({
       url: imageUrl,
     });

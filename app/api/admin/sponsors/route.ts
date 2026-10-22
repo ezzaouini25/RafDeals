@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       FROM sponsors
       ${whereClause}
       ORDER BY is_boosted DESC, is_active DESC, impressions ASC
-      LIMIT ? OFFSET ?`,
+      LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
       [...params, limit, offset]
     );
 

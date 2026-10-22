@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN authors au ON o.author_id = au.id
       ${whereClause}
       ORDER BY ${dbSortField} ${dbSortOrder}
-      LIMIT ? OFFSET ?`,
+      LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
       [...params, limit, offset]
     );
 

@@ -4,10 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import NewsletterSubscribe from '@/components/ui/NewsletterSubscribe';
 import { useState, useEffect } from 'react';
+import { Category } from '@/types';
 
-// ---------------------------------------------------------------------------
-// 1. PAGES ARRAY
-// ---------------------------------------------------------------------------
 const pages = [
   { href: '/', label: 'Home' },
   { href: '/blog', label: 'Blog' },
@@ -16,50 +14,20 @@ const pages = [
   { href: '/contact', label: 'Contact' },
 ];
 
-// ---------------------------------------------------------------------------
-// 2. OFFERS CATEGORIES ARRAY
-// ---------------------------------------------------------------------------
-const offersCategories = [
-  { href: '/offers/finance', label: 'Finance & Banking' },
-  { href: '/offers/cashback', label: 'Cashback Rewards' },
-  { href: '/offers/crypto', label: 'Crypto Bonuses' },
-  { href: '/offers/gift-cards', label: 'Gift Cards' },
-  { href: '/offers/sign-up', label: 'Sign-Up Bonuses' },
-];
-
-// ---------------------------------------------------------------------------
-// 3. DEALS CATEGORIES ARRAY
-// ---------------------------------------------------------------------------
-const dealsCategories = [
-  { href: '/deals/electronics', label: 'Electronics & Tech' },
-  { href: '/deals/software', label: 'Software & Subscriptions' },
-  { href: '/deals/home', label: 'Home & Lifestyle' },
-  { href: '/deals/travel', label: 'Travel & Leisure' },
-  { href: '/deals/fashion', label: 'Fashion & Apparel' },
-];
-
-// ---------------------------------------------------------------------------
-// 4. LEGAL PAGES ARRAY
-// ---------------------------------------------------------------------------
-const defaultLegalPages = [
-  { slug: 'privacy-policy', title: 'Privacy Policy' },
-  { slug: 'terms-of-service', title: 'Terms of Service' },
-  { slug: 'disclaimer', title: 'Disclaimer' },
-  { slug: 'cookie-policy', title: 'Cookie Policy' },
-];
-
 const getLegalLabel = (slug: string): string => {
   return slug
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (l) => l.toUpperCase());
 };
 
-export default function Footer({ legalPages: legalPagesProp }: { legalPages?: { slug: string }[] } = {}) {
-  const [legalPages, setLegalPages] = useState<{ slug: string; title?: string }[]>(
-    legalPagesProp && legalPagesProp.length > 0 ? legalPagesProp : defaultLegalPages
-  );
+export default function Footer() {
+  // State for all three columns
+  const [legalPages, setLegalPages] = useState<{ slug: string; title?: string }[]>([]);
+  const [offerCategories, setOfferCategories] = useState<Category[]>([]);
+  const [dealCategories, setDealCategories] = useState<Category[]>([]);
 
   useEffect(() => {
+    // 1. Fetch Legal Pages
     const fetchLegalPages = async () => {
       try {
         const res = await fetch('/api/public/legal-pages');
@@ -73,17 +41,34 @@ export default function Footer({ legalPages: legalPagesProp }: { legalPages?: { 
         console.error('Error fetching legal pages:', error);
       }
     };
+
+    // 2. Fetch Categories (Offers & Deals)
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch('/api/admin/categories');
+        if (res.ok) {
+          const data = await res.json();
+          const allCats = data.categories || [];
+          
+          setOfferCategories(allCats.filter((c: any) => c.type === 'offers' || c.type === 'both'));
+          setDealCategories(allCats.filter((c: any) => c.type === 'deals' || c.type === 'both'));
+        }
+      } catch (error) {
+        console.error('Error fetching categories for footer:', error);
+      }
+    };
+
     fetchLegalPages();
+    fetchCategories();
   }, []);
 
   return (
     <footer className="bg-navy text-white border-t border-navy/50">
       <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         
-        {/* Main Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10">
           
-          {/* Brand & Logo Column (Spans 2 cols) */}
+          {/* Brand */}
           <div className="lg:col-span-2">
             <Link href="/" className="inline-block mb-4 group">
               <div className="h-10 flex items-center">
@@ -120,10 +105,13 @@ export default function Footer({ legalPages: legalPagesProp }: { legalPages?: { 
           <div>
             <h4 className="font-semibold text-white mb-4 tracking-wide uppercase text-xs">Offers</h4>
             <ul className="space-y-2">
-              {offersCategories.map((link) => (
-                <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-gray-300 hover:text-yellow transition-colors">
-                    {link.label}
+              {offerCategories.map((category) => (
+                <li key={category.id}>
+                  <Link
+                    href={`/offers/category/${category.slug}`}
+                    className="text-sm text-gray-300 hover:text-yellow transition-colors"
+                  >
+                    {category.name}
                   </Link>
                 </li>
               ))}
@@ -134,10 +122,13 @@ export default function Footer({ legalPages: legalPagesProp }: { legalPages?: { 
           <div>
             <h4 className="font-semibold text-white mb-4 tracking-wide uppercase text-xs">Deals</h4>
             <ul className="space-y-2">
-              {dealsCategories.map((link) => (
-                <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-gray-300 hover:text-yellow transition-colors">
-                    {link.label}
+              {dealCategories.map((category) => (
+                <li key={category.id}>
+                  <Link
+                    href={`/deals/category/${category.slug}`}
+                    className="text-sm text-gray-300 hover:text-yellow transition-colors"
+                  >
+                    {category.name}
                   </Link>
                 </li>
               ))}
@@ -161,9 +152,9 @@ export default function Footer({ legalPages: legalPagesProp }: { legalPages?: { 
             </ul>
           </div>
 
-        </div> {/* ✅ CLOSED GRID HERE */}
+        </div>
 
-        {/* Full-Width Newsletter Area */}
+        {/* Newsletter */}
         <div className="w-full border-t border-white/10 pt-10 pb-6 mt-12">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="max-w-lg">
@@ -181,7 +172,7 @@ export default function Footer({ legalPages: legalPagesProp }: { legalPages?: { 
           </div>
         </div>
 
-      </div> {/* ✅ CLOSED CONTAINER HERE */}
+      </div>
 
       {/* Bottom Bar */}
       <div className="border-t border-white/10 bg-black/20">

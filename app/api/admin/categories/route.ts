@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         orderBy = `ORDER BY c.name ${sortOrder}`;
     }
 
-    // ✅ Includes deal_count + total_usage with deals
+    // ✅ FIXED: Interpolate LIMIT and OFFSET directly (MySQL 8 rejects LIMIT ? OFFSET ?)
     const [categories] = await pool.execute(
       `SELECT 
         c.id, 
@@ -81,8 +81,8 @@ export async function GET(request: NextRequest) {
        FROM categories c
        ${whereClause}
        ${orderBy}
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
+      params
     );
 
     let totalWhereClause = 'WHERE 1=1';
@@ -144,11 +144,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
     }
 
-    // ✅ Validate type
     const validTypes = ['offers', 'articles', 'deals', 'both'];
     const normalizedType = validTypes.includes(type) ? type : 'offers';
 
-    // Check if slug exists
     const [existing] = await pool.execute(
       'SELECT id FROM categories WHERE slug = ?',
       [slug.trim()]
@@ -210,11 +208,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
     }
 
-    // ✅ Validate type
     const validTypes = ['offers', 'articles', 'deals', 'both'];
     const normalizedType = validTypes.includes(type) ? type : 'offers';
 
-    // Check if slug exists for other categories
     const [existing] = await pool.execute(
       'SELECT id FROM categories WHERE slug = ? AND id != ?',
       [slug.trim(), id]
@@ -264,7 +260,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     }
 
-    // ✅ Check offers, articles AND deals
     const [offersCount] = await pool.execute(
       'SELECT COUNT(*) as count FROM offers WHERE category_id = ?',
       [id]

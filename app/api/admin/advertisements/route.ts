@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       FROM advertisements
       ${whereClause}
       ORDER BY is_active DESC, created_at DESC
-      LIMIT ? OFFSET ?`,
+      LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
       [...params, limit, offset]
     );
 

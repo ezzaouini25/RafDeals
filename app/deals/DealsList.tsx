@@ -1,18 +1,27 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Search, Filter, ArrowUpDown, X, Gift, ArrowLeft, ArrowRight } from 'lucide-react';
-import { Deal } from '@/types'; // ✅ CHANGED FROM Offer TO Deal
+import { Search, Filter, ArrowUpDown, X, Gift, ArrowLeft, ArrowRight, Globe, ChevronDown } from 'lucide-react';
+import { Deal, Category } from '@/types';
 import DealCard from '@/components/ui/DealCard';
 import AdPlacement from '@/components/ui/AdPlacement';
+import Flag from '@/components/ui/Flag';
+import { Countries } from 'countries-states-cities-service/countries';
 
+const ALL_COUNTRIES = Countries.getCountries();
 const ITEMS_PER_PAGE = 9;
 
 interface DealsListProps {
-  initialDeals: Deal[]; // ✅ CHANGED FROM Offer TO Deal
+  initialDeals: Deal[];
+  categories: Category[];
 }
+
+// ✅ Helper to get country data from code
+const getCountryData = (code: string) => {
+  return ALL_COUNTRIES.find((c) => c.iso2 === code);
+};
 
 // ============================================================
 // EXTRACT NUMERIC VALUE FROM PAYOUT AMOUNT
@@ -27,24 +36,45 @@ const extractPayoutValue = (payout: string | null): number => {
   return 0;
 };
 
-export default function DealsList({ initialDeals }: DealsListProps) {
+// ============================================================
+// DEALS LIST COMPONENT
+// ============================================================
+export default function DealsList({ initialDeals, categories = [] }: DealsListProps) {
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCountry, setSelectedCountry] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // ✅ Country Dropdown State
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const countryDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get latest deal for hero background
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target as Node)) {
+        setIsCountryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const latestDeal = initialDeals.length > 0 ? initialDeals[0] : null;
 
-  // Get all unique categories
-  const categories = useMemo(() => {
-    const map = new Map<string, string>();
-    initialDeals.forEach((d) => {
-      if (d.category?.slug && d.category?.name) {
-        map.set(d.category.slug, d.category.name);
+  // ✅ Extract unique countries from deals
+  const availableCountries = useMemo(() => {
+    const codes = new Set<string>();
+    initialDeals.forEach((deal) => {
+      if (deal.country) {
+        const list = Array.isArray(deal.country) ? deal.country : deal.country.split(',');
+        list.forEach((c) => {
+          if (c.trim()) codes.add(c.trim());
+        });
       }
     });
-    return Array.from(map.entries()).map(([slug, name]) => ({ slug, name }));
+    return Array.from(codes).sort();
   }, [initialDeals]);
 
   // Filter and sort deals
@@ -57,14 +87,23 @@ export default function DealsList({ initialDeals }: DealsListProps) {
         (d) =>
           d.title.toLowerCase().includes(q) ||
           (d.content?.toLowerCase().includes(q) ?? false) ||
-          (d.meta_keywords?.toLowerCase().includes(q) ?? false)
+          (d.brand_name?.toLowerCase().includes(q) ?? false)
       );
     }
 
-    if (categoryFilter !== 'all') {
-      result = result.filter((d) => d.category?.slug === categoryFilter);
+    if (selectedCategory !== 'all') {
+      result = result.filter((d) => d.category?.slug === selectedCategory);
     }
 
+    if (selectedCountry !== 'all') {
+      result = result.filter((d) => {
+        if (!d.country) return false;
+        const list = Array.isArray(d.country) ? d.country : d.country.split(',');
+        return list.some((c) => c.trim() === selectedCountry);
+      });
+    }
+
+    // ✅ Sort Options (Exactly as requested)
     switch (sortBy) {
       case 'newest':
         result.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
@@ -78,28 +117,15 @@ export default function DealsList({ initialDeals }: DealsListProps) {
       case 'rating-low':
         result.sort((a, b) => (a.rating || 0) - (b.rating || 0));
         break;
-      case 'price-low':
-        result.sort((a, b) => extractPayoutValue(a.payout_amount) - extractPayoutValue(b.payout_amount));
-        break;
-      case 'price-high':
-        result.sort((a, b) => extractPayoutValue(b.payout_amount) - extractPayoutValue(a.payout_amount));
-        break;
       case 'popular':
         result.sort((a, b) => (b.views || 0) - (a.views || 0));
-        break;
-      case 'boosted':
-        result.sort((a, b) => {
-          if (a.is_boosted && !b.is_boosted) return -1;
-          if (!a.is_boosted && b.is_boosted) return 1;
-          return 0;
-        });
         break;
       default:
         break;
     }
 
     return result;
-  }, [initialDeals, search, categoryFilter, sortBy]);
+  }, [initialDeals, search, selectedCategory, selectedCountry, sortBy]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginated = useMemo(() => {
@@ -115,21 +141,22 @@ export default function DealsList({ initialDeals }: DealsListProps) {
 
   const clearFilters = () => {
     setSearch('');
-    setCategoryFilter('all');
+    setSelectedCategory('all');
+    setSelectedCountry('all');
     setSortBy('newest');
     setCurrentPage(1);
   };
 
+  // ✅ Sort Options
   const sortOptions = [
     { value: 'newest', label: 'Newest First' },
     { value: 'oldest', label: 'Oldest First' },
     { value: 'rating-high', label: 'Highest Rated' },
     { value: 'rating-low', label: 'Lowest Rated' },
-    { value: 'price-low', label: 'Price: Low to High' },
-    { value: 'price-high', label: 'Price: High to Low' },
     { value: 'popular', label: 'Most Popular' },
-    { value: 'boosted', label: 'Featured First' },
   ];
+
+  const selectedCountryData = selectedCountry !== 'all' ? getCountryData(selectedCountry) : null;
 
   return (
     <div className="bg-white min-h-screen">
@@ -186,6 +213,7 @@ export default function DealsList({ initialDeals }: DealsListProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-wrap items-center gap-3">
 
+            {/* Search */}
             <div className="relative flex-1 min-w-[180px] max-w-[380px]">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-soft-navy" />
               <input
@@ -211,25 +239,76 @@ export default function DealsList({ initialDeals }: DealsListProps) {
               )}
             </div>
 
+            {/* Category Filter */}
             <div className="flex items-center gap-2">
               <Filter size={16} className="text-soft-navy flex-shrink-0" />
               <select
-                value={categoryFilter}
+                value={selectedCategory}
                 onChange={(e) => {
-                  setCategoryFilter(e.target.value);
+                  setSelectedCategory(e.target.value);
                   setCurrentPage(1);
                 }}
                 className="h-11 px-3 text-sm border border-border-gray bg-white text-mid-navy outline-none cursor-pointer transition-all min-w-[140px]"
               >
                 <option value="all">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c.slug} value={c.slug}>
-                    {c.name}
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.slug}>
+                    {cat.name}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* ✅ Country Filter (Custom Dropdown with Flags) */}
+            <div className="relative" ref={countryDropdownRef}>
+              <button
+                onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                className="h-11 px-3 flex items-center gap-2 text-sm border border-border-gray bg-white text-mid-navy outline-none cursor-pointer transition-all min-w-[160px] justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  {selectedCountryData ? (
+                    <>
+                      <Flag country={selectedCountryData.iso2 as any} width={20} />
+                      <span className="truncate max-w-[100px]">{selectedCountryData.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Globe size={16} className="text-soft-navy" />
+                      <span>All Countries</span>
+                    </>
+                  )}
+                </div>
+                <ChevronDown size={14} className={`transition-transform ${isCountryDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isCountryDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-full min-w-[200px] max-h-60 overflow-y-auto bg-white border border-border-gray shadow-lg z-50">
+                  <button
+                    onClick={() => { setSelectedCountry('all'); setIsCountryDropdownOpen(false); setCurrentPage(1); }}
+                    className={`w-full px-3 py-2.5 flex items-center gap-2 text-sm text-left hover:bg-light-gray transition-colors ${selectedCountry === 'all' ? 'bg-navy/5 font-bold' : ''}`}
+                  >
+                    <Globe size={16} className="text-soft-navy" />
+                    All Countries
+                  </button>
+                  {availableCountries.map((code) => {
+                    const country = getCountryData(code);
+                    if (!country) return null;
+                    return (
+                      <button
+                        key={code}
+                        onClick={() => { setSelectedCountry(code); setIsCountryDropdownOpen(false); setCurrentPage(1); }}
+                        className={`w-full px-3 py-2.5 flex items-center gap-2 text-sm text-left hover:bg-light-gray transition-colors ${selectedCountry === code ? 'bg-navy/5 font-bold' : ''}`}
+                      >
+                        <Flag country={code as any} width={20} />
+                        <span className="truncate">{country.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Sort */}
             <div className="flex items-center gap-2">
               <ArrowUpDown size={16} className="text-soft-navy flex-shrink-0" />
               <select
@@ -244,6 +323,15 @@ export default function DealsList({ initialDeals }: DealsListProps) {
                 ))}
               </select>
             </div>
+
+            {(selectedCategory !== 'all' || selectedCountry !== 'all' || search) && (
+              <button
+                onClick={clearFilters}
+                className="text-sm text-rose-500 font-medium hover:text-rose-600 transition-colors"
+              >
+                Clear
+              </button>
+            )}
 
             <span className="ml-auto text-sm text-soft-navy font-medium whitespace-nowrap">
               Showing {filtered.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} deals

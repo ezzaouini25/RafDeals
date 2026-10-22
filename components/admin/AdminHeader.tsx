@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { 
   Menu, X, Bell, LogOut, Settings, ChevronDown, RefreshCw, Loader2,
@@ -59,6 +60,7 @@ interface AdminHeaderProps {
   isMobile?: boolean;
   userRole: 'admin' | 'editor';
   userName: string;
+  userPicture?: string | null; // ✅ Added
   onLogout: () => void;
   onRefresh?: () => void;
   onToggleSidebar?: () => void;
@@ -141,6 +143,7 @@ function MobileMenuItem({ item, pathname, onClose }: { item: any; pathname: stri
 export default function AdminHeader({ 
   userRole, 
   userName, 
+  userPicture, // ✅ Added
   onLogout, 
   onRefresh,
   onToggleSidebar,
@@ -159,6 +162,9 @@ export default function AdminHeader({
   const [subCount, setSubCount] = useState(0);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const pathname = usePathname();
+
+  // ✅ Check if we are on the login page
+  const isLoginPage = pathname === '/admin/login';
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -196,9 +202,16 @@ export default function AdminHeader({
   const visibleItems = menuItems.filter((item) => !item.adminOnly || userRole === 'admin');
 
   const fetchNotifications = async () => {
+    // ✅ Don't fetch if on login page
+    if (isLoginPage) return;
+
     setLoading(true);
     try {
       const res = await fetch('/api/admin/notifications?status=unread', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+      
+      // ✅ Silent fail on 401/403 (logged out)
+      if (res.status === 401 || res.status === 403) return;
+
       if (res.ok) {
         const data = await res.json();
         setNotifications((data.notifications || []).filter((n: NotificationItem) => !n.read));
@@ -206,23 +219,30 @@ export default function AdminHeader({
         setTotalUnread(data.totalUnread || 0);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      // ✅ Silent fail - no console error to avoid spam
     } finally {
       setLoading(false);
     }
   };
 
   const fetchSubscriptions = async () => {
+    // ✅ Don't fetch if on login page
+    if (isLoginPage) return;
+
     setLoadingSubs(true);
     try {
       const res = await fetch('/api/admin/subscriptions/notifications', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+      
+      // ✅ Silent fail on 401/403
+      if (res.status === 401 || res.status === 403) return;
+
       if (res.ok) {
         const data = await res.json();
         setSubscriptions(data.notifications || []);
         setSubCount(data.total || 0);
       }
     } catch (error) {
-      console.error('Error fetching subscriptions:', error);
+      // ✅ Silent fail
     } finally {
       setLoadingSubs(false);
     }
@@ -240,7 +260,7 @@ export default function AdminHeader({
         setNotifications(prev => prev.filter(n => n.id !== notification.id));
         setTotalUnread(prev => Math.max(0, prev - 1));
       }
-    } catch (error) { console.error('Error marking as read:', error); }
+    } catch (error) { }
   };
 
   const markSubAsRead = async (id: number) => {
@@ -254,7 +274,7 @@ export default function AdminHeader({
         setSubscriptions(prev => prev.filter(s => s.id !== id));
         setSubCount(prev => Math.max(0, prev - 1));
       }
-    } catch (error) { console.error('Error marking subscription as read:', error); }
+    } catch (error) { }
   };
 
   const markAllAsRead = async () => {
@@ -263,18 +283,23 @@ export default function AdminHeader({
     }
   };
 
+  // ✅ Initial Fetch + Interval (Stops on Login Page)
   useEffect(() => {
+    if (isLoginPage) return;
+
     fetchNotifications();
     fetchSubscriptions();
-  }, []);
 
-  useEffect(() => {
     const interval = setInterval(() => {
-      fetchNotifications();
-      fetchSubscriptions();
+      // ✅ Only fetch if page is visible
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+        fetchSubscriptions();
+      }
     }, 30000);
+
     return () => clearInterval(interval);
-  }, []);
+  }, [isLoginPage]); // Re-run when login status changes
 
   const displayName = userName || 'User';
 
@@ -311,11 +336,13 @@ export default function AdminHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-navy border-b border-white/10">
+      <header className="sticky top-0 z-40 bg-navy border-b border-white/10 shrink-0">
         <div className="flex items-center justify-between px-3 sm:px-4 lg:px-6 h-14 sm:h-16">
 
           {/* LEFT SECTION */}
           <div className="flex items-center gap-2 sm:gap-3">
+            
+            {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 -ml-2 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
@@ -324,7 +351,8 @@ export default function AdminHeader({
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
 
-            {!isMobile && onToggleSidebar && (
+            {/* ✅ Desktop Toggle Button - ALWAYS VISIBLE */}
+            {onToggleSidebar && (
               <button
                 onClick={onToggleSidebar}
                 className="hidden lg:flex p-2 -ml-2 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
@@ -349,12 +377,6 @@ export default function AdminHeader({
 
           {/* RIGHT SECTION */}
           <div className="flex items-center gap-0.5 sm:gap-1 lg:gap-2">
-            
-            {/* ✅ THESE 3 ARE NOW REMOVED FROM HERE */}
-            {/* <Link href="/admin/counters" ...> ... </Link> */}
-            {/* <Link href="/admin/header-scripts" ...> ... </Link> */}
-            {/* <Link href="/admin/legal-pages" ...> ... </Link> */}
-
             <Link
               href="/admin/categories"
               className="p-2 text-white/70 hover:text-white hover:bg-white/10 transition-colors relative"
@@ -488,9 +510,20 @@ export default function AdminHeader({
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center gap-1 sm:gap-2 p-1 hover:bg-white/10 transition-colors"
               >
-                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-yellow text-slate-950 font-bold flex items-center justify-center text-xs sm:text-sm">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
+                {/* ✅ Avatar: picture if present, letter otherwise */}
+                {userPicture ? (
+                  <Image
+                    src={userPicture}
+                    alt={displayName}
+                    width={32}
+                    height={32}
+                    className="w-7 h-7 sm:w-8 sm:h-8 border border-white/50 object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-yellow text-slate-950 font-bold flex items-center justify-center text-xs sm:text-sm shrink-0">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <ChevronDown size={14} className="hidden sm:block text-white/50" />
               </button>
 
@@ -499,15 +532,32 @@ export default function AdminHeader({
                   <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-56 bg-navy border border-white/10 shadow-xl z-50">
                     <div className="px-4 py-3 border-b border-white/10">
-                      <p className="text-sm font-bold text-white">{displayName}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs font-medium text-white/60">{userRole || 'User'}</span>
-                        <span className="w-1 h-1 bg-white/20" />
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-yellow uppercase tracking-wider"><ShieldCheck size={10} />Verified</span>
+                      {/* ✅ Dropdown header — avatar + name */}
+                      <div className="flex items-center gap-3">
+                        {userPicture ? (
+                          <Image
+                            src={userPicture}
+                            alt={displayName}
+                            width={40}
+                            height={40}
+                            className="w-10 h-10 border border-white/10 object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-yellow text-slate-950 font-bold flex items-center justify-center text-sm shrink-0">
+                            {displayName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white truncate">{displayName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs font-medium text-white/60">{userRole || 'User'}</span>
+                            <span className="w-1 h-1 bg-white/20" />
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-yellow uppercase tracking-wider"><ShieldCheck size={10} />Verified</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* ✅ THE 3 PAGES ARE NOW ADDED HERE INSIDE THE DROPDOWN */}
                     <Link
                       href="/admin/counters"
                       onClick={() => setDropdownOpen(false)}
@@ -589,9 +639,20 @@ export default function AdminHeader({
           <div className="lg:hidden fixed top-14 sm:top-16 left-0 bottom-0 w-72 bg-navy border-r border-white/10 z-40 overflow-y-auto shadow-xl animate-slide-in [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
             <div className="p-4 border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow text-slate-950 font-bold flex items-center justify-center text-sm">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
+                {/* ✅ Mobile drawer avatar */}
+                {userPicture ? (
+                  <Image
+                    src={userPicture}
+                    alt={displayName}
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 border border-white/10 object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-yellow text-slate-950 font-bold flex items-center justify-center text-sm shrink-0">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <p className="text-sm font-bold text-white">{displayName}</p>
                   <p className="text-xs text-white/50">{userRole || 'User'}</p>
