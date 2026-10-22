@@ -110,19 +110,6 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
   );
 }
 
-
-
-  return (
-    <div className={`fixed top-20 right-4 z-50 max-w-sm p-4 border ${colors[type]} flex items-start gap-3 shadow-lg animate-in slide-in-from-top-5 duration-300`}>
-      {icons[type]}
-      <span className="text-sm font-medium flex-1">{message}</span>
-      <button onClick={onClose} className="text-slate-500 hover:text-slate-700 dark:hover:text-white">
-        <X size={16} />
-      </button>
-    </div>
-  );
-}
-
 interface Advertisement {
   id: number;
   name: string;
