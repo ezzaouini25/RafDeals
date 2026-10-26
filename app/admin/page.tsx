@@ -1448,7 +1448,7 @@ export default function AdminDashboard() {
           data={data.reviews}
           icon={Star}
           color="text-amber-500"
-          href="/admin/reviews"
+          href="/admin/members"
           sparklineData={data.weeklyReviews}
           sparklineColor="#fbbf24"
           tooltipIcon={Star}
@@ -1461,7 +1461,7 @@ export default function AdminDashboard() {
           data={data.comments}
           icon={MessageCircle}
           color="text-cyan-500"
-          href="/admin/comments"
+          href="/admin/members"
           sparklineData={data.weeklyComments}
           sparklineColor="#22d3ee"
           tooltipIcon={MessageSquare}
@@ -1474,7 +1474,7 @@ export default function AdminDashboard() {
           data={data.testimonials}
           icon={Quote}
           color="text-purple-500"
-          href="/admin/testimonials"
+          href="/admin/members"
           sparklineData={data.weeklyTestimonials}
           sparklineColor="#a78bfa"
           tooltipIcon={Quote}

@@ -100,21 +100,21 @@ function getDisplayDuration(isBoosted: boolean): number {
 }
 
 // ============================================================
-// FETCH WITH TIMEOUT (Fixed to ignore AbortError)
+// FETCH WITH TIMEOUT (ignores AbortError)
 // ============================================================
 
 async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: number } = {}) {
   const { timeout = 5000, ...fetchOptions } = options;
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
-  
+
   try {
     const response = await fetch(url, { ...fetchOptions, signal: controller.signal });
     clearTimeout(id);
     return response;
   } catch (error: any) {
     clearTimeout(id);
-    // ✅ Ignore the AbortError if the component unmounted (Strict Mode)
+    // Ignore the AbortError if the component unmounted (Strict Mode)
     if (error.name === 'AbortError') {
       return null;
     }
@@ -171,7 +171,7 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
         if (!isMounted.current) return;
 
         if (data.sponsors && Array.isArray(data.sponsors) && data.sponsors.length > 0) {
-          // ROBUST FILTER: accepts boolean true, number 1, string "1", string "true"
+          // Robust filter: accepts boolean true, number 1, string "1", string "true"
           const active = data.sponsors.filter((s: Sponsor) => {
             const val = s.is_active;
             return (val as any) === true || (val as any) === 1 || (val as any) === '1' || (val as any) === 'true';
@@ -193,7 +193,7 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
           }
         }
       } catch (err: any) {
-        // ✅ Silently ignore errors caused by unmounting
+        // Silently ignore errors caused by unmounting
         if (err.name !== 'AbortError' && err.message !== 'HTTP Aborted') {
           console.error('Ad fetch error:', err);
         }
@@ -244,8 +244,8 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sponsorId, placement }),
       });
-    } catch (e) { 
-      console.error(e); 
+    } catch (e) {
+      console.error(e);
     }
   }, [placement]);
 
@@ -256,8 +256,8 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sponsorId, placement }),
       });
-    } catch (e) { 
-      console.error(e); 
+    } catch (e) {
+      console.error(e);
     }
   }, [placement]);
 
@@ -321,43 +321,19 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
   const dims = { width: displayWidth || 300, height: displayHeight || 250 };
 
   // ============================================================
-  // LOADING STATE
+  // ✅ LOADING → RENDER NOTHING
+  // No skeleton, no placeholder box — the section stays invisible.
   // ============================================================
-
   if (loading) {
-    return (
-      <div className={`flex justify-center ${className}`}>
-        <div
-          className="relative border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950 animate-pulse overflow-hidden"
-          style={{ width: dims.width, height: dims.height }}
-        >
-          <OverlayHeader />
-          <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-white/5">
-            <span className="text-[10px] text-slate-400 dark:text-white/20">Loading...</span>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // ============================================================
-  // NO SPONSORS / ERROR - NEVER RETURN NULL
+  // ✅ NO SPONSORS / API ERROR → RENDER NOTHING
+  // No "No ads" placeholder — the section disappears entirely.
   // ============================================================
-
   if (!currentSponsor || sponsors.length === 0) {
-    return (
-      <div className={`flex justify-center ${className}`}>
-        <div
-          className="relative border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 overflow-hidden"
-          style={{ width: dims.width, height: dims.height }}
-        >
-          <OverlayHeader />
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-[10px] text-slate-400 dark:text-white/20">No ads</span>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // ============================================================

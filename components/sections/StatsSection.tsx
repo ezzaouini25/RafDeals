@@ -35,7 +35,7 @@ export default async function StatsSection() {
       value: totalOffers,
       suffix: '+',
       label: 'Live Online Offers',
-      subLabel: 'Banks, Apps & Finance',
+      subLabel: 'Offers Without Limits',
       metricTitle: 'OFFERS',
       icon: ShieldCheck,
       color: 'yellow',
@@ -57,7 +57,7 @@ export default async function StatsSection() {
       value: totalDeals,
       suffix: '+',
       label: 'Active Deals',
-      subLabel: 'Pets, Beauty & Travel',
+      subLabel: 'Unlock Deals More Value',
       metricTitle: 'DEALS',
       icon: Tag,
       color: 'blue',
@@ -115,14 +115,12 @@ export default async function StatsSection() {
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-navy tracking-tight leading-[1.1]">
             <span className="text-navy relative inline-block">
-              RafDeals. 
-              <span className="absolute left-0 bottom-1.5 w-full h-[6px] bg-yellow rounded-none -z-10 opacity-70" />
-              Live Statistics.
+              RafDeals. Live Statistics.
             </span>
-          </h2>s
+          </h2>
 
           <p className="mt-4 text-sm sm:text-base text-gray-text max-w-xl mx-auto font-medium leading-relaxed">
-            No inflated stats. Just a clear look at the verified online offers and exclusive deals our community is claiming right now.
+            Every number comes from verified activity on the platform.
           </p>
         </div>
 

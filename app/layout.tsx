@@ -21,7 +21,7 @@ const SITE_URL = 'https://rafdeals.com';
 const SITE_NAME = 'RafDeals';
 const DEFAULT_TITLE = 'RafDeals | Verified Online Offers & Exclusive Deals';
 const DEFAULT_DESCRIPTION =
-  'Discover verified online offers, signup bonuses, cashback opportunities, and exclusive deals on RafDeals. Review offer details and terms before participating.';
+  'Discover valuable online offers, special deals, and promotions across a broad selection of categories at RafDeals.';
 
 export const viewport: Viewport = {
   width: 'device-width',

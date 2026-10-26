@@ -5,8 +5,10 @@ const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-// Replace with your actual Blob store host from Vercel Dashboard → Storage → your Blob store
-const BLOB_HOST = process.env.BLOB_STORE_HOST || 'YOUR-STORE-ID.public.blob.vercel-storage.com';
+// Real Blob store host — matches the URL returned by @vercel/blob put()
+// (from upload logs: https://6dpfjhdiswxegllu.public.blob.vercel-storage.com/...)
+const BLOB_HOST =
+  process.env.BLOB_STORE_HOST || '6dpfjhdiswxegllu.public.blob.vercel-storage.com';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -20,7 +22,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'picsum.photos', port: '', pathname: '/**' },
       { protocol: 'https', hostname: 'images.unsplash.com', port: '', pathname: '/**' },
-      { protocol: 'https', hostname: BLOB_HOST, port: '', pathname: '/**' }, // ✅ Blob store
+      { protocol: 'https', hostname: BLOB_HOST, port: '', pathname: '/**' },
     ],
   },
   async rewrites() {

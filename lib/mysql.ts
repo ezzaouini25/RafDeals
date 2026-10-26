@@ -1,8 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import mysql from 'mysql2/promise';
+import { attachDatabasePool } from '@vercel/functions';
 
-let pool: mysql.Pool | null = null;
+// ✅ Use globalThis so the pool survives Next.js hot-reloads in dev AND
+// stays cached across requests in the same Vercel function instance.
+const globalForDb = globalThis as unknown as { __mysqlPool?: mysql.Pool };
+let pool: mysql.Pool | null = globalForDb.__mysqlPool ?? null;
 
 /**
  * Retrieves the database configuration from secure environment variables.
@@ -24,7 +28,6 @@ export function getDbConfig() {
 export function isDbConfigured(): boolean {
   const config = getDbConfig();
 
-  // Check if we have the minimum required config
   if (!config.host || !config.user || !config.database) {
     console.log('❌ Missing required DB config:', {
       host: config.host ? '✅' : '❌',
@@ -34,7 +37,6 @@ export function isDbConfigured(): boolean {
     return false;
   }
 
-  // Prevent connecting to mock placeholder values
   const isPlaceholder =
     config.host === 'your-database-host-or-ip' ||
     config.user === 'your_database_user' ||
@@ -48,14 +50,6 @@ export function isDbConfigured(): boolean {
 
 /**
  * Builds the SSL options for the MySQL pool.
- *
- * Aiven requires TLS with a verified CA certificate. Download the CA cert
- * from the Aiven console (Service → Overview → CA Certificate) and save it
- * to ./certs/aiven-ca.pem in your project root.
- *
- * If the file is missing, we fall back to the legacy behaviour
- * (rejectUnauthorized: false) so dev environments without the cert still
- * work — but Aiven will reject that connection at runtime.
  */
 function buildSslOptions():
   | { rejectUnauthorized: boolean; ca?: Buffer }
@@ -91,7 +85,6 @@ export function getMysqlPool(): mysql.Pool {
     const config = getDbConfig();
     const ssl = buildSslOptions();
 
-    // Debug log to see what's being used (remove in production)
     console.log('🔌 Connecting to MySQL with:', {
       host: config.host,
       port: config.port,
@@ -110,14 +103,28 @@ export function getMysqlPool(): mysql.Pool {
         database: config.database,
         ssl,
         waitForConnections: true,
-        connectionLimit: 10,
-        maxIdle: 10,
-        idleTimeout: 60000,
+        connectionLimit: 1,        // 1 per instance — Aiven free tier safety
+        maxIdle: 1,                // match connectionLimit
+        idleTimeout: 3000,         // 3s idle close (aggressive)
         queueLimit: 0,
         enableKeepAlive: true,
         keepAliveInitialDelay: 0,
-        connectTimeout: 10000,
+        connectTimeout: 3000,      // ← 3s instead of 10s: fail fast, don't hang login
       });
+
+      // ✅ Pass the RAW pool, not the promise wrapper.
+      try {
+        attachDatabasePool((pool as any).pool || pool);
+        console.log('✅ attachDatabasePool registered');
+      } catch (attachErr: any) {
+        console.warn(
+          '⚠️ attachDatabasePool skipped:',
+          attachErr?.message || attachErr
+        );
+      }
+
+      // ✅ Persist across Next.js hot-reloads and Vercel function reuse
+      globalForDb.__mysqlPool = pool;
 
       console.log('✅ MySQL connection pool initialized successfully!');
     } catch (error) {

@@ -62,9 +62,9 @@ const useViewportWidth = () => {
 // MAIN COMPONENT
 // ============================================================
 
-export default function GoogleAdSense({ 
-  placement, 
-  className = '' 
+export default function GoogleAdSense({
+  placement,
+  className = ''
 }: GoogleAdSenseProps) {
   const [ad, setAd] = useState<Ad | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,12 +80,11 @@ export default function GoogleAdSense({
     if (config) {
       const exactSize = config[device];
       setSize(exactSize);
-      
-      // Calculate dimensions like sponsor component
+
       const [exactW, exactH] = exactSize.split('x').map(Number);
       const displayWidth = exactW > 0 ? Math.min(exactW, viewportWidth - 32) : 300;
       setDimensions({ width: displayWidth, height: exactH || 250 });
-      
+
       console.log('📱 Device:', device, 'Size:', exactSize, 'Placement:', placement);
     }
   }, [placement, viewportWidth]);
@@ -98,10 +97,10 @@ export default function GoogleAdSense({
       try {
         setLoading(true);
         console.log('🔍 Fetching ad for size:', size);
-        
+
         const url = `/api/public/advertisements?size=${size}&_=${Date.now()}`;
         const res = await fetch(url, { cache: 'no-store' });
-        
+
         const data = await res.json();
         console.log('📦 API Response:', data);
 
@@ -124,30 +123,25 @@ export default function GoogleAdSense({
   }, [size]);
 
   // ============================================================
-  // HIDE IF NO AD - RETURN NULL
+  // ✅ LOADING → RENDER NOTHING
+  // No skeleton, no placeholder — the section stays invisible.
   // ============================================================
 
   if (loading) {
-    return (
-      <div className={`flex justify-center ${className}`}>
-        <div
-          className="relative border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950 animate-pulse overflow-hidden"
-          style={{ width: dimensions.width, height: dimensions.height }}
-        >
-          <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-white/5">
-            <span className="text-[10px] text-slate-400 dark:text-white/20">Loading...</span>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
+
+  // ============================================================
+  // ✅ NO AD → RENDER NOTHING
+  // The whole section disappears — no empty gap.
+  // ============================================================
 
   if (!ad) {
     return null;
   }
 
   // ============================================================
-  // RENDER AD (EXACT DIMENSIONS - FULL SPACE)
+  // RENDER AD (EXACT DIMENSIONS)
   // ============================================================
 
   return (
@@ -156,7 +150,7 @@ export default function GoogleAdSense({
         className="relative border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950 overflow-hidden"
         style={{ width: dimensions.width, height: dimensions.height }}
       >
-        {/* OVERLAY HEADER - Top left like sponsor */}
+        {/* OVERLAY HEADER */}
         <div className="absolute top-0 left-0 z-10 inline-flex items-center gap-1.5 px-2 py-[4px] bg-black/30 backdrop-blur-sm pointer-events-none select-none">
           <span className="text-[8px] font-medium uppercase tracking-wider text-white/90 leading-none">
             Advertisements
@@ -170,7 +164,7 @@ export default function GoogleAdSense({
           </span>
         </div>
 
-        {/* AD CONTENT - Fills 100% width & height with flex centering */}
+        {/* AD CONTENT */}
         <div
           className="w-full h-full flex items-center justify-center"
           dangerouslySetInnerHTML={{ __html: ad.ad_data }}

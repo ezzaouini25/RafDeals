@@ -13,7 +13,7 @@ interface AdminUserSession {
   username: string;
   email: string;
   role: 'admin' | 'editor';
-  picture: string | null;   // ✅ add this
+  picture: string | null;
 }
 
 interface AdminContextType {
@@ -35,7 +35,6 @@ export const useAdmin = () => useContext(AdminContext);
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AdminUserSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const [redirecting, setRedirecting] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -44,26 +43,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isLoginPage = pathname === '/admin/login';
 
+  // ============================================================
+  // MOBILE DETECTION
+  // ============================================================
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Close mobile sidebar on navigation
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [pathname]);
 
+  // ============================================================
+  // FETCH SESSION
+  // ============================================================
   const fetchSession = async () => {
     try {
       const res = await fetch('/api/admin/auth/me', {
         cache: 'no-store',
         headers: { 'Cache-Control': 'no-cache' },
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -77,6 +81,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   };
 
+  // ============================================================
+  // LOGOUT
+  // ============================================================
   const logout = async () => {
     try {
       await fetch('/api/admin/auth/logout', { method: 'POST' });
@@ -96,27 +103,64 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   };
 
+  // ============================================================
+  // ✅ BUG 1 FIXED: Only fetch session when NOT on the login page.
+  // The login page renders instantly — no /me call, no hang.
+  // ============================================================
   useEffect(() => {
-    fetchSession();
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!loading && !user && !isLoginPage && !redirecting) {
-      setRedirecting(true);
-      router.replace('/admin/login');
+    if (isLoginPage) {
+      setLoading(false);
+      return;
     }
-  }, [loading, user, isLoginPage, redirecting, router]);
+    fetchSession();
+  }, [pathname, isLoginPage]);
 
-  if (loading) {
+  // ============================================================
+  // ✅ BUG 2 FIXED: Only redirect ONCE. No infinite loop.
+  // If user is null and not on login page → redirect.
+  // If already on login page → do nothing.
+  // ============================================================
+  useEffect(() => {
+    if (loading) return;
+    if (isLoginPage) return;
+    if (user) return;
+
+    // ✅ Only redirect if not already navigating there
+    router.replace('/admin/login');
+  }, [loading, user, isLoginPage, router]);
+
+  // ============================================================
+  // RENDER: LOADING
+  // (only shown for admin pages, never for the login page)
+  // ============================================================
+  if (loading && !isLoginPage) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
         <Loader2 className="w-8 h-8 animate-spin text-yellow mb-3" />
-        <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Loading Admin Console...</p>
+        <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">
+          Loading Admin Console...
+        </p>
       </div>
     );
   }
 
-  if (redirecting) {
+  // ============================================================
+  // RENDER: LOGIN PAGE (bare, no sidebar, no header)
+  // ============================================================
+  if (isLoginPage) {
+    return (
+      <AdminContext.Provider
+        value={{ user, loading, refreshUser: fetchSession, logout }}
+      >
+        {children}
+      </AdminContext.Provider>
+    );
+  }
+
+  // ============================================================
+  // RENDER: NOT AUTHENTICATED (brief — before redirect kicks in)
+  // ============================================================
+  if (!user) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-sm font-medium">
         Redirecting to login...
@@ -124,29 +168,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (isLoginPage) {
-    return (
-      <AdminContext.Provider value={{ user, loading, refreshUser: fetchSession, logout }}>
-        {children}
-      </AdminContext.Provider>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
+  // ============================================================
+  // RENDER: AUTHENTICATED ADMIN
+  // ============================================================
   return (
-    <AdminContext.Provider value={{ user, loading, refreshUser: fetchSession, logout }}>
+    <AdminContext.Provider
+      value={{ user, loading, refreshUser: fetchSession, logout }}
+    >
       <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-        
         <AdminSidebar
           userRole={user?.role || 'editor'}
           userName={user?.name || user?.username || 'User'}
           userEmail={user?.email || ''}
           onLogout={logout}
           collapsed={sidebarCollapsed}
-          userPicture={user?.picture || null} // ✅ Pass the picture
+          userPicture={user?.picture || null}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           isMobileOpen={mobileSidebarOpen}
           onMobileClose={() => setMobileSidebarOpen(false)}
@@ -171,9 +207,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           />
 
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full">
-            <div className="max-w-7xl mx-auto w-full">
-              {children}
-            </div>
+            <div className="max-w-7xl mx-auto w-full">{children}</div>
           </main>
         </div>
       </div>

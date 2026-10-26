@@ -17,8 +17,8 @@ export default function Hero() {
           className="object-cover object-center scale-105"
         />
         {/* Dark overlay for elite readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-navy via-navy/90 to-navy/40 md:to-transparent" />
-        <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-navy via-navy/60 to-navy/20 md:to-transparent" />
+        <div className="absolute inset-0 bg-slate-950/10 backdrop-blur-[1px]" />
       </div>
 
       <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">

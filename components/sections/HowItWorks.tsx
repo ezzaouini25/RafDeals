@@ -5,19 +5,19 @@ const steps = [
     number: '01',
     icon: Tag,
     title: 'Discover Verified Deals',
-    description: 'Browse our hand-picked, strictly verified list of exclusive discounts, cashback offers, and signup bonuses.',
+    description: 'Explore curated deals across cashback, discounts, and bonuses. Each listing shows the key details upfront, including the value, the requirements, and the expiry, so you can decide in seconds.',
   },
   {
     number: '02',
     icon: MousePointerClick,
-    title: 'Claim the Offer',
-    description: 'Click through to the merchant and secure your deal. We only partner with trusted platforms with zero hidden fees.',
+    title: 'Activate with Confidence',
+    description: 'Go straight to the merchant through our link. Our guides walk you through eligibility, terms, and common mistakes, so you claim the full value instead of missing out on technicalities.',
   },
   {
     number: '03',
     icon: ShoppingBag,
-    title: 'Enjoy Your Savings',
-    description: 'Receive your cashback, gift cards, or discounts directly. Keep more money in your pocket with every purchase.',
+    title: 'Make Every Purchase Count',
+    description: 'Receive your cashback, rewards, or discount and see the savings add up. New deals and guides are added regularly, so your next opportunity is always ready.',
   },
 ];
 
