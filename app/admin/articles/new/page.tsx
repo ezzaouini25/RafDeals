@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import parse from 'html-react-parser';
 import {
   ArrowLeft,
   Save,
@@ -27,7 +28,7 @@ import {
   Upload,
   Users,
   FolderOpen,
-  Image as ImageIcon, // ✅ Added
+  Image as ImageIcon,
 } from 'lucide-react';
 
 // ✅ CKEditor imports
@@ -58,10 +59,10 @@ import {
 import 'ckeditor5/ckeditor5.css';
 
 // ✅ SEO Packages
-import { parse } from 'node-html-parser';
+import { parse as parseHtml } from 'node-html-parser';
 import readingTime from 'reading-time';
 
-// ✅ Offer + Deal insertion toolbar (opens OfferPickerModal / DealPickerModal)
+// ✅ Offer + Deal insertion toolbar
 import ArticleEditorToolbar from '@/components/admin/ArticleEditorToolbar';
 
 // ============================================================
@@ -177,11 +178,11 @@ function CustomUploadAdapterPlugin(editor: any) {
 function analyzeSEO(content: string, focusKeyword: string, title: string, metaDescription: string, metaKeywords: string) {
   const results = {
     score: 0,
-    checks: [] as { 
-      name: string; 
-      passed: boolean; 
+    checks: [] as {
+      name: string;
+      passed: boolean;
       status: 'success' | 'warning' | 'error';
-      message: string; 
+      message: string;
       icon: any;
       current: number | string;
       target: string;
@@ -201,7 +202,7 @@ function analyzeSEO(content: string, focusKeyword: string, title: string, metaDe
     return results;
   }
 
-  const html = parse(content);
+  const html = parseHtml(content);
   const textContent = html.textContent || '';
   const wordCount = textContent.split(/\s+/).filter(w => w.length > 0).length;
   const readingStats = readingTime(textContent);
@@ -241,7 +242,7 @@ function analyzeSEO(content: string, focusKeyword: string, title: string, metaDe
     name: 'Title Length',
     passed: titleStatus === 'success',
     status: titleStatus,
-    message: titleStatus === 'success' ? `${titleLength} characters (optimal)` : 
+    message: titleStatus === 'success' ? `${titleLength} characters (optimal)` :
              titleLength > 60 ? `${titleLength} characters (too long)` : `${titleLength} characters (too short)`,
     icon: titleStatus === 'success' ? Check : titleStatus === 'warning' ? CircleAlert : X,
     current: `${titleLength} chars`,
@@ -430,7 +431,10 @@ export default function CreateArticlePage() {
   const [loadingImages, setLoadingImages] = useState(false);
   const [mediaInsertType, setMediaInsertType] = useState<'cover' | 'content'>('cover');
 
-  // CKEditor instance ref (used by ArticleEditorToolbar to insert [offer:ID] / [deal:ID])
+  // ✅ NEW: Show HTML preview toggle
+  const [showPreview, setShowPreview] = useState(false);
+
+  // CKEditor instance ref
   const editorRef = useRef<any>(null);
 
   // Filter options state
@@ -516,7 +520,7 @@ export default function CreateArticlePage() {
       const res = await fetch(`/api/admin/media/delete?url=${encodeURIComponent(url)}`, {
         method: 'DELETE',
       });
-      
+
       const data = await res.json();
 
       if (res.ok) {
@@ -637,6 +641,14 @@ export default function CreateArticlePage() {
       showToast('Please select an author', 'error'); setLoading(false); return;
     }
 
+    // ✅ NEW: Sanity check — reject obviously-empty HTML
+    const plainText = formData.content.replace(/<[^>]*>/g, '').trim();
+    if (!plainText) {
+      showToast('Content is empty — write the article before publishing.', 'error');
+      setLoading(false);
+      return;
+    }
+
     try {
       let coverImageUrl = formData.cover_image;
       if (coverImageFile) {
@@ -673,6 +685,19 @@ export default function CreateArticlePage() {
     }
   };
 
+  // ✅ NEW: Ctrl+S shortcut to publish
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (!loading) handleSubmit(e as any);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, loading]);
+
   const getStatusColor = (status: string) => status === 'success' ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : status === 'warning' ? 'text-amber-400 border-amber-500/20 bg-amber-500/5' : 'text-rose-400 border-rose-500/20 bg-rose-500/5';
   const getScoreColor = (score: number) => score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-rose-400';
   const getScoreBg = (score: number) => score >= 80 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-rose-500';
@@ -699,10 +724,20 @@ export default function CreateArticlePage() {
             </p>
           </div>
         </div>
-        <button onClick={handleSubmit} disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          {loading ? 'Saving...' : 'Publish Article'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
+          >
+            {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showPreview ? 'Edit' : 'Preview'}
+          </button>
+          <button onClick={handleSubmit} disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {loading ? 'Saving...' : 'Publish Article'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -711,7 +746,7 @@ export default function CreateArticlePage() {
           {/* Basic Info */}
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Basic Information</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Title *</label>
@@ -783,7 +818,7 @@ export default function CreateArticlePage() {
                 </div>
               </div>
 
-              {/* ✅ Cover Image Upload + Browse */}
+              {/* Cover Image Upload + Browse */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Cover Image</label>
                 <div className="flex flex-col items-center justify-center w-full">
@@ -806,7 +841,7 @@ export default function CreateArticlePage() {
                         </div>
                         <input type="file" accept="image/*" onChange={handleCoverImageUpload} className="hidden" />
                       </label>
-                      
+
                       <button
                         type="button" onClick={() => openMediaLibrary('cover')}
                         className="w-full py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
@@ -831,7 +866,6 @@ export default function CreateArticlePage() {
               onDealInserted={(deal) => showToast(`Inserted deal: ${deal.title}`, 'success')}
             />
 
-            {/* ✅ زر إدراج صورة في المحتوى من المكتبة */}
             <div className="mb-4 mt-2">
               <button
                 type="button"
@@ -843,19 +877,35 @@ export default function CreateArticlePage() {
               </button>
             </div>
 
-            <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
-              {isEditorReady ? (
-                <CKEditor
-                  editor={ClassicEditor} config={editorConfig} data={formData.content}
-                  onReady={(editor: any) => { editorRef.current = editor; }}
-                  onChange={(event: any, editor: any) => { setFormData({ ...formData, content: editor.getData() }); }}
-                />
-              ) : (
-                <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
-                  <Loader2 size={24} className="animate-spin text-yellow mr-2" /> Loading editor...
-                </div>
-              )}
-            </div>
+            {!showPreview ? (
+              <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
+                {isEditorReady ? (
+                  <CKEditor
+                    editor={ClassicEditor} config={editorConfig} data={formData.content}
+                    onReady={(editor: any) => { editorRef.current = editor; }}
+                    onChange={(event: any, editor: any) => { setFormData({ ...formData, content: editor.getData() }); }}
+                  />
+                ) : (
+                  <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
+                    <Loader2 size={24} className="animate-spin text-yellow mr-2" /> Loading editor...
+                  </div>
+                )}
+              </div>
+            ) : (
+              // ✅ NEW: HTML preview — shows the content exactly like the public page will
+              <div className="border border-slate-200 dark:border-white/10 min-h-[400px] p-4 sm:p-6 bg-white dark:bg-slate-950">
+                {formData.content ? (
+                  <div className="article-body-custom">
+                    {parse(formData.content)}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 py-16">
+                    <FileText size={48} className="mb-3 opacity-30" />
+                    <p className="text-sm">No content yet — switch back to Edit and write the article.</p>
+                  </div>
+                )}
+              </div>
+            )}
             {isUploading && (
               <div className="mt-2 flex items-center gap-2 text-sm text-yellow">
                 <Loader2 size={16} className="animate-spin" /> Uploading image...
@@ -985,7 +1035,7 @@ export default function CreateArticlePage() {
         </div>
       </div>
 
-      {/* ✅ Media Library Popup Modal */}
+      {/* Media Library Popup Modal */}
       {isMediaModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">

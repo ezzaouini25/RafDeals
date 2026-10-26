@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react'; // ✅ Added useRef
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import parse from 'html-react-parser';
 import {
   ArrowLeft, Save, Loader2, X, AlertCircle, CheckCircle, Trash2, Sparkles,
   Tag, Search, TrendingUp, AlertTriangle, Check, Circle, CircleAlert,
   CircleCheck, Upload, Gift, Link as LinkIcon, DollarSign,
   Star, Calendar, CreditCard, Users, FolderOpen, Image as ImageIcon,
+  Eye, EyeOff,
 } from 'lucide-react';
 
 import CountrySelect from '@/components/ui/CountrySelect';
@@ -21,7 +23,7 @@ import {
 } from 'ckeditor5';
 import 'ckeditor5/ckeditor5.css';
 
-import { parse } from 'node-html-parser';
+import { parse as parseHtml } from 'node-html-parser';
 import readingTime from 'reading-time';
 
 // Payout label options (pay_name)
@@ -152,7 +154,7 @@ function analyzeSEO(content: string, focusKeyword: string, title: string, metaDe
     return results;
   }
 
-  const html = parse(content);
+  const html = parseHtml(content);
   const textContent = html.textContent || '';
   const wordCount = textContent.split(/\s+/).filter(w => w.length > 0).length;
   const readingStats = readingTime(textContent);
@@ -364,6 +366,9 @@ export default function CreateDealPage() {
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
 
+  // ✅ NEW: Preview toggle
+  const [showPreview, setShowPreview] = useState(false);
+
   // ✅ Media Library States
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [mediaImages, setMediaImages] = useState<string[]>([]);
@@ -431,15 +436,14 @@ export default function CreateDealPage() {
   const generateSlug = (title: string) =>
     title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-  // ✅ Media Library Functions
   const openMediaLibrary = async (type: 'cover' | 'content') => {
     setMediaInsertType(type);
     setIsMediaModalOpen(true);
     setLoadingImages(true);
     try {
-      const res = await fetch('/api/admin/media?folder=deals'); // 👈 Deals Folder
+      const res = await fetch('/api/admin/media?folder=deals');
       if (!res.ok) throw new Error('Failed to fetch images');
-      
+
       const data = await res.json();
       setMediaImages(data.images || []);
     } catch (err) {
@@ -472,7 +476,6 @@ export default function CreateDealPage() {
     }
   };
 
-  // Cover image upload
   const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -588,6 +591,14 @@ export default function CreateDealPage() {
       return;
     }
 
+    // ✅ NEW: Sanity check — reject empty content (only whitespace / empty tags)
+    const plainText = formData.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim();
+    if (!plainText) {
+      showToast('Content is empty — write the deal before publishing.', 'error');
+      setLoading(false);
+      return;
+    }
+
     try {
       let coverImageUrl = formData.cover_image;
       if (coverImageFile) {
@@ -633,6 +644,19 @@ export default function CreateDealPage() {
     }
   };
 
+  // ✅ NEW: Ctrl+S shortcut
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (!loading) handleSubmit(e as any);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, loading]);
+
   // Helpers
   const getStatusColor = (status: string) => {
     if (status === 'success') return 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5';
@@ -669,10 +693,20 @@ export default function CreateDealPage() {
           </div>
         </div>
 
-        <button onClick={handleSubmit} disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          {loading ? 'Saving...' : 'Publish Deal'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
+          >
+            {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showPreview ? 'Edit' : 'Preview'}
+          </button>
+          <button onClick={handleSubmit} disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {loading ? 'Saving...' : 'Publish Deal'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -854,7 +888,7 @@ export default function CreateDealPage() {
                 </div>
               </div>
 
-              {/* ✅ Cover Image Upload + Browse */}
+              {/* Cover Image Upload + Browse */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Cover Image</label>
                 <div className="flex flex-col items-center justify-center w-full">
@@ -877,7 +911,7 @@ export default function CreateDealPage() {
                         </div>
                         <input type="file" accept="image/*" onChange={handleCoverImageUpload} className="hidden" />
                       </label>
-                      
+
                       <button
                         type="button" onClick={() => openMediaLibrary('cover')}
                         className="w-full py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
@@ -896,7 +930,6 @@ export default function CreateDealPage() {
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Content *</h2>
 
-            {/* ✅ Insert Image from Library Button */}
             <div className="mb-4">
               <button
                 type="button"
@@ -908,23 +941,39 @@ export default function CreateDealPage() {
               </button>
             </div>
 
-            <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
-              {isEditorReady ? (
-                <CKEditor
-                  editor={ClassicEditor} config={editorConfig} data={formData.content}
-                  onReady={(editor: any) => { editorRef.current = editor; }}
-                  onChange={(_event: any, editor: any) => {
-                    const data = editor.getData();
-                    setFormData((prev) => ({ ...prev, content: data }));
-                  }}
-                />
-              ) : (
-                <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
-                  <Loader2 size={24} className="animate-spin text-yellow mr-2" />
-                  Loading editor...
-                </div>
-              )}
-            </div>
+            {!showPreview ? (
+              <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
+                {isEditorReady ? (
+                  <CKEditor
+                    editor={ClassicEditor} config={editorConfig} data={formData.content}
+                    onReady={(editor: any) => { editorRef.current = editor; }}
+                    onChange={(_event: any, editor: any) => {
+                      const data = editor.getData();
+                      setFormData((prev) => ({ ...prev, content: data }));
+                    }}
+                  />
+                ) : (
+                  <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
+                    <Loader2 size={24} className="animate-spin text-yellow mr-2" />
+                    Loading editor...
+                  </div>
+                )}
+              </div>
+            ) : (
+              // ✅ NEW: HTML preview
+              <div className="border border-slate-200 dark:border-white/10 min-h-[400px] p-4 sm:p-6 bg-white dark:bg-slate-950">
+                {formData.content ? (
+                  <div className="article-body-custom">
+                    {parse(formData.content)}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 py-16">
+                    <Gift size={48} className="mb-3 opacity-30" />
+                    <p className="text-sm">No content yet — switch back to Edit and write the deal.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1049,7 +1098,7 @@ export default function CreateDealPage() {
         </div>
       </div>
 
-      {/* ✅ Media Library Popup Modal */}
+      {/* Media Library Popup Modal */}
       {isMediaModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">

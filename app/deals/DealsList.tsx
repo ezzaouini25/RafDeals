@@ -184,10 +184,10 @@ export default function DealsList({ initialDeals, categories = [] }: DealsListPr
         <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="max-w-3xl">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
-              Hot Deals & Discounts
+              Browse All Active Deals & Exclusive Promotions
             </h1>
             <p className="text-white/80 text-sm sm:text-base mt-2 max-w-xl">
-              Discover the best deals, coupons, and discounts from trusted brands.
+              Find verified deals, promo codes, and discounts from top brands in one place.
             </p>
             <div className="flex flex-wrap items-center gap-3 mt-4">
               <Link

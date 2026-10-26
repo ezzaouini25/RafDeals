@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { unlink } from 'fs/promises';
-import path from 'path';
+import { del } from '@vercel/blob';
 
 export async function DELETE(request: Request) {
   try {
@@ -11,31 +10,36 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'No image URL provided' }, { status: 400 });
     }
 
-    // ✅ إصلاح المسار: إزالة الرموز المشفرة مثل %20 وتحويلها لمسافات عادية
+    // Decode URL-encoded characters (e.g. %20 → space)
     const decodedUrl = decodeURIComponent(imageUrl);
-    
-    // إزالة علامة السلاش الأولى إذا كانت موجودة لتجنب مشاكل المسار
-    const cleanPath = decodedUrl.startsWith('/') ? decodedUrl.slice(1) : decodedUrl;
 
-    // بناء المسار الفعلي للملف
-    const filePath = path.join(process.cwd(), 'public', cleanPath);
+    // Reconstruct the Blob URL from the local-looking path.
+    // DB stores "/uploads/..."; Blob URL is https://{storeHost}/uploads/...
+    const storeHost = process.env.BLOB_STORE_HOST;
+    if (!storeHost) {
+      console.warn('⚠️ BLOB_STORE_HOST not set, skipping delete');
+      return NextResponse.json({ success: true, message: 'File skip (no store host)' });
+    }
 
-    console.log('Attempting to delete file at:', filePath);
+    const cleanPath = decodedUrl.startsWith('/') ? decodedUrl : `/${decodedUrl}`;
+    const blobUrl = `https://${storeHost}${cleanPath}`;
 
-    // حذف الملف
-    await unlink(filePath);
+    console.log('Attempting to delete blob at:', blobUrl);
+
+    // ✅ Delete from Vercel Blob
+    await del(blobUrl);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('❌ Delete error:', error);
-    
-    // إذا كان الملف غير موجود، نعتبر العملية ناجحة (لتنظيف الواجهة)
-    if (error.code === 'ENOENT') {
+
+    // If the blob is already gone, treat as success for UI cleanup
+    if (error?.message?.toLowerCase().includes('not found') || error?.status === 404) {
       return NextResponse.json({ success: true, message: 'File already deleted' });
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to delete image' }, 
+      { error: error.message || 'Failed to delete image' },
       { status: 500 }
     );
   }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { unlink } from 'fs/promises';
-import path from 'path';
+import { del } from '@vercel/blob';
 
 // ✅ GET - Fetch all testimonials
 export async function GET(request: NextRequest) {
@@ -66,7 +65,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // ✅ STEP 1: Get the testimonial data before deleting
+    // STEP 1: Get the testimonial data before deleting
     const [rows] = await pool.execute(
       'SELECT image_path FROM comments_testimonials WHERE id = ? AND type = "testimonial"',
       [id]
@@ -83,20 +82,25 @@ export async function DELETE(request: NextRequest) {
     const testimonial = testimonials[0];
     const imagePath = testimonial.image_path;
 
-    // ✅ STEP 2: Delete the testimonial from database
+    // STEP 2: Delete the testimonial from database
     await pool.execute('DELETE FROM comments_testimonials WHERE id = ?', [id]);
 
-    // ✅ STEP 3: Delete the image from filesystem
+    // STEP 3: Delete the image from Vercel Blob
     let imageDeleted = false;
     if (imagePath) {
-      try {
-        // imagePath might be like: /uploads/testimonials/testimonial_123.jpg
-        const filePath = path.join(process.cwd(), 'public', imagePath);
-        await unlink(filePath);
-        imageDeleted = true;
-        console.log(`✅ Deleted testimonial image: ${filePath}`);
-      } catch (error) {
-        console.warn(`⚠️ Could not delete image: ${imagePath}`, error);
+      const storeHost = process.env.BLOB_STORE_HOST;
+      if (storeHost) {
+        try {
+          const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+          const blobUrl = `https://${storeHost}${cleanPath}`;
+          await del(blobUrl);
+          imageDeleted = true;
+          console.log(`✅ Deleted testimonial blob: ${blobUrl}`);
+        } catch (error) {
+          console.warn(`⚠️ Could not delete blob: ${imagePath}`, error);
+        }
+      } else {
+        console.warn('⚠️ BLOB_STORE_HOST not set, skipping blob delete');
       }
     }
 

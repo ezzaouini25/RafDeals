@@ -31,7 +31,6 @@ export async function generateStaticParams() {
   return deals.map((d) => ({ slug: d.slug }));
 }
 
-
 export default async function DealDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -66,7 +65,6 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
   const categoryName = deal.category?.name || deal.category_name || null;
   const categorySlug = deal.category?.slug || deal.category_slug || null;
 
-  // Resolve payout label from pay_name
   const payLabel = deal.pay_name?.trim() || 'Deal Value';
 
   const content = deal.content || '';
@@ -138,9 +136,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
   return (
     <div className="bg-white min-h-screen">
 
-      {/* ============================================================ */}
-      {/* HERO — same layout as offers */}
-      {/* ============================================================ */}
+      {/* HERO */}
       <section className="relative overflow-hidden bg-navy">
         {deal.cover_image && (
           <div className="absolute inset-0 z-0">
@@ -256,9 +252,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         </div>
       </section>
 
-      {/* ============================================================ */}
       {/* MAIN CONTENT */}
-      {/* ============================================================ */}
       <section className="py-12 sm:py-16 bg-light-gray/40">
         <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
@@ -272,26 +266,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
 
                 {deal.content && (
                   <div className="px-6 sm:px-10 py-8">
-                    <div className="article-body-custom leading-relaxed text-gray-text
-                      [&_p]:text-base [&_p]:sm:text-[17px] [&_p]:text-gray-text [&_p]:leading-relaxed [&_p]:mb-6
-                      [&_p_strong]:text-navy [&_p_strong]:font-extrabold
-                      [&_blockquote]:border-l-4 [&_blockquote]:border-yellow [&_blockquote]:bg-light-gray/60 [&_blockquote]:pl-6 [&_blockquote]:pr-4 [&_blockquote]:py-4 [&_blockquote]:italic [&_blockquote]:my-8 [&_blockquote]:text-navy/90 [&_blockquote]:border-r [&_blockquote]:border-yellow/30 [&_blockquote_p]:text-lg [&_blockquote_p]:font-serif [&_blockquote_p]:mb-0
-                      [&_h1]:text-2xl [&_h1]:sm:text-3xl [&_h1]:font-black [&_h1]:text-navy [&_h1]:mt-12 [&_h1]:mb-6 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-border-gray/60 [&_h1]:pb-3
-                      [&_h2]:text-xl [&_h2]:sm:text-2xl [&_h2]:font-extrabold [&_h2]:text-navy [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:tracking-tight [&_h2]:flex [&_h2]:items-center [&_h2]:gap-3 [&_h2]:before:content-[''] [&_h2]:before:w-2 [&_h2]:before:h-8 [&_h2]:before:bg-yellow
-                      [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-navy [&_h3]:mt-8 [&_h3]:mb-3 [&_h3]:border-l-4 [&_h3]:border-yellow [&_h3]:pl-3
-                      [&_ul]:list-none [&_ul]:pl-0 [&_ul]:mb-8 [&_ul]:space-y-2.5
-                      [&_ul_li]:relative [&_ul_li]:pl-8 [&_ul_li]:mb-2.5 [&_ul_li]:text-sm [&_ul_li]:sm:text-base [&_ul_li]:text-gray-text [&_ul_li]:before:content-['✓'] [&_ul_li]:before:absolute [&_ul_li]:before:left-0 [&_ul_li]:before:top-0.5 [&_ul_li]:before:text-emerald-600 [&_ul_li]:before:font-extrabold [&_ul_li]:before:bg-emerald-50 [&_ul_li]:before:px-1.5 [&_ul_li]:before:py-0.5 [&_ul_li]:before:border [&_ul_li]:before:border-emerald-200 [&_ul_li]:before:text-[10px]
-                      [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-8 [&_ol]:space-y-2.5
-                      [&_ol_li]:mb-2 [&_ol_li]:text-sm [&_ol_li]:sm:text-base [&_ol_li]:text-gray-text [&_ol_li]:font-semibold [&_ol_li_strong]:text-navy
-                      [&_table]:w-full [&_table]:my-10 [&_table]:border-collapse [&_table]:border [&_table]:border-border-gray/70 [&_table]:shadow-md
-                      [&_thead]:bg-navy [&_thead]:text-white
-                      [&_th]:px-5 [&_th]:py-4 [&_th]:text-left [&_th]:text-xs [&_th]:font-black [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-white
-                      [&_tr]:border-b [&_tr]:border-border-gray/30 [&_tr:last-child]:border-0 [&_tr]:hover:bg-light-gray/20 [&_tr]:transition-colors
-                      [&_tr:nth-child(even)]:bg-light-gray/35
-                      [&_td]:px-5 [&_td]:py-4 [&_td]:text-sm [&_td]:sm:text-base [&_td]:text-gray-text [&_td]:font-semibold
-                      [&_code]:bg-light-gray [&_code]:text-pink-600 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:border [&_code]:border-border-gray/45 [&_code]:font-mono [&_code]:text-xs
-                      [&_pre]:bg-navy/95 [&_pre]:text-yellow/90 [&_pre]:p-5 [&_pre]:font-mono [&_pre]:text-xs [&_pre]:sm:text-sm [&_pre]:my-8 [&_pre]:overflow-x-auto [&_pre]:shadow-lg [&_pre]:border [&_pre]:border-white/10 [&_pre]:leading-relaxed [&_pre_code]:text-yellow-hover [&_pre_code]:border-0 [&_pre_code]:p-0 [&_pre_code]:bg-transparent"
-                    >
+                    <div className="article-body-custom">
                       {parse(contentWithAds, {
                         replace: (node: any) => {
                           if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-1')) {
@@ -467,9 +442,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         </div>
       </section>
 
-      {/* ============================================================ */}
       {/* RELATED DEALS */}
-      {/* ============================================================ */}
       {relatedDeals.length > 0 && (
         <section className="bg-white py-20 border-t border-border-gray/30">
           <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">

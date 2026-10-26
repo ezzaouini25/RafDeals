@@ -113,13 +113,13 @@ export default async function StatsSection() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 border-2 border-navy text-navy font-bold text-xs uppercase tracking-widest mb-6">
             By The Numbers
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-navy tracking-tight uppercase leading-[1.1]">
-            Real Numbers. <br className="hidden sm:block" />
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-navy tracking-tight leading-[1.1]">
             <span className="text-navy relative inline-block">
-              Real Savings.
+              RafDeals. 
               <span className="absolute left-0 bottom-1.5 w-full h-[6px] bg-yellow rounded-none -z-10 opacity-70" />
+              Live Statistics.
             </span>
-          </h2>
+          </h2>s
 
           <p className="mt-4 text-sm sm:text-base text-gray-text max-w-xl mx-auto font-medium leading-relaxed">
             No inflated stats. Just a clear look at the verified online offers and exclusive deals our community is claiming right now.

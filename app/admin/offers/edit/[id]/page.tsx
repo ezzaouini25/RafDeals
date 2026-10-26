@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react'; // ✅ Added useRef
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import parse from 'html-react-parser';
 import {
   ArrowLeft, Save, Loader2, X, AlertCircle, CheckCircle, Trash2, Sparkles,
   FileText, Tag, Search, TrendingUp, AlertTriangle, Check, Circle, CircleAlert,
   CircleCheck, Upload, Edit, Gift, Link as LinkIcon, DollarSign,
-  Star, Calendar, CreditCard, User, Image as ImageIcon, // ✅ Added ImageIcon
+  Star, Calendar, CreditCard, User, Image as ImageIcon,
+  Eye, EyeOff,
 } from 'lucide-react';
 
 import CountrySelect from '@/components/ui/CountrySelect';
@@ -21,10 +23,10 @@ import {
 } from 'ckeditor5';
 import 'ckeditor5/ckeditor5.css';
 
-import { parse } from 'node-html-parser';
+import { parse as parseHtml } from 'node-html-parser';
 import readingTime from 'reading-time';
 
-// ✅ Payout label options (pay_name)
+// Payout label options (pay_name)
 const PAY_NAME_OPTIONS = [
   'Earning Potential',
   'Signup Bonus',
@@ -85,7 +87,9 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
   );
 }
 
+// ============================================================
 // CKEditor Upload Adapter
+// ============================================================
 function CustomUploadAdapterPlugin(editor: any) {
   editor.plugins.get('FileRepository').createUploadAdapter = (loader: any) => {
     return {
@@ -113,7 +117,9 @@ function CustomUploadAdapterPlugin(editor: any) {
   };
 }
 
-// SEO Analysis Function
+// ============================================================
+// SEO ANALYSIS
+// ============================================================
 function analyzeSEO(content: string, focusKeyword: string, title: string, metaDescription: string, metaKeywords: string) {
   const results = {
     score: 0,
@@ -125,7 +131,7 @@ function analyzeSEO(content: string, focusKeyword: string, title: string, metaDe
     return results;
   }
 
-  const html = parse(content);
+  const html = parseHtml(content);
   const textContent = html.textContent || '';
   const wordCount = textContent.split(/\s+/).filter(w => w.length > 0).length;
   const readingStats = readingTime(textContent);
@@ -199,6 +205,9 @@ function analyzeSEO(content: string, focusKeyword: string, title: string, metaDe
   return results;
 }
 
+// ============================================================
+// COMPONENT
+// ============================================================
 export default function EditOfferPage() {
   const router = useRouter();
   const params = useParams();
@@ -216,13 +225,15 @@ export default function EditOfferPage() {
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
 
+  // ✅ NEW: Preview toggle
+  const [showPreview, setShowPreview] = useState(false);
+
   // ✅ Media Library States
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [mediaImages, setMediaImages] = useState<string[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [mediaInsertType, setMediaInsertType] = useState<'cover' | 'content'>('cover');
 
-  // ✅ CKEditor instance ref
   const editorRef = useRef<any>(null);
 
   const [formData, setFormData] = useState({
@@ -273,7 +284,6 @@ export default function EditOfferPage() {
     return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   };
 
-  // ✅ Media Library Functions
   const openMediaLibrary = async (type: 'cover' | 'content') => {
     setMediaInsertType(type);
     setIsMediaModalOpen(true);
@@ -281,7 +291,7 @@ export default function EditOfferPage() {
     try {
       const res = await fetch('/api/admin/media?folder=offers');
       if (!res.ok) throw new Error('Failed to fetch images');
-      
+
       const data = await res.json();
       setMediaImages(data.images || []);
     } catch (err) {
@@ -314,7 +324,6 @@ export default function EditOfferPage() {
     }
   };
 
-  // ✅ Fetch offer data
   useEffect(() => {
     const fetchOffer = async () => {
       if (!id) return;
@@ -449,15 +458,22 @@ export default function EditOfferPage() {
     if (!formData.title || !formData.slug || !formData.content || !formData.offer_link) {
       showToast('Title, slug, content, and offer link are required', 'error'); setSaving(false); return;
     }
+
+    // ✅ NEW: Empty content sanity check
+    const plainText = formData.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim();
+    if (!plainText) {
+      showToast('Content is empty — write the offer before saving.', 'error');
+      setSaving(false);
+      return;
+    }
+
     try {
       let coverImageUrl = formData.cover_image;
-      
-      // If user removed the image and didn't upload a new one
+
       if (removeExistingImage && !coverImageFile) {
         coverImageUrl = '';
       }
-      
-      // If user uploaded a new file from PC
+
       if (coverImageFile) {
         const uploadedUrl = await uploadCoverImage();
         if (uploadedUrl) coverImageUrl = uploadedUrl;
@@ -488,11 +504,11 @@ export default function EditOfferPage() {
 
       const res = await fetch('/api/admin/offers/edit', { method: 'PUT', body: submitData });
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to update offer');
       }
-      
+
       showToast('Offer updated successfully!', 'success');
       setTimeout(() => router.push('/admin/offers'), 3000);
     } catch (err: any) {
@@ -501,6 +517,19 @@ export default function EditOfferPage() {
       setSaving(false);
     }
   };
+
+  // ✅ NEW: Ctrl+S shortcut
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (!saving) handleSubmit(e as any);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, saving]);
 
   const getStatusColor = (status: string) => status === 'success' ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : status === 'warning' ? 'text-amber-400 border-amber-500/20 bg-amber-500/5' : 'text-rose-400 border-rose-500/20 bg-rose-500/5';
   const getScoreColor = (score: number) => score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-rose-400';
@@ -521,7 +550,6 @@ export default function EditOfferPage() {
     <div className="space-y-6 p-4 sm:p-6">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link href="/admin/offers" className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
@@ -537,16 +565,24 @@ export default function EditOfferPage() {
             </p>
           </div>
         </div>
-        <button onClick={handleSubmit} disabled={saving} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
-          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          {saving ? 'Saving...' : 'Update Offer'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
+          >
+            {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showPreview ? 'Edit' : 'Preview'}
+          </button>
+          <button onClick={handleSubmit} disabled={saving} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? 'Saving...' : 'Update Offer'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* MAIN FORM */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Basic Info */}
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Basic Information</h2>
 
@@ -720,7 +756,6 @@ export default function EditOfferPage() {
                 </div>
               </div>
 
-              {/* ✅ Cover Image Upload + Browse */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Cover Image</label>
                 <div className="flex flex-col items-center justify-center w-full">
@@ -743,7 +778,7 @@ export default function EditOfferPage() {
                         </div>
                         <input type="file" accept="image/*" onChange={handleCoverImageUpload} className="hidden" />
                       </label>
-                      
+
                       <button
                         type="button" onClick={() => openMediaLibrary('cover')}
                         className="w-full py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
@@ -758,11 +793,9 @@ export default function EditOfferPage() {
             </div>
           </div>
 
-          {/* Content */}
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Content *</h2>
 
-            {/* ✅ زر إدراج صورة في المحتوى من المكتبة */}
             <div className="mb-4">
               <button
                 type="button"
@@ -774,19 +807,34 @@ export default function EditOfferPage() {
               </button>
             </div>
 
-            <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
-              {isEditorReady ? (
-                <CKEditor
-                  editor={ClassicEditor} config={editorConfig} data={formData.content}
-                  onReady={(editor: any) => { editorRef.current = editor; }}
-                  onChange={(event: any, editor: any) => { setFormData({ ...formData, content: editor.getData() }); }}
-                />
-              ) : (
-                <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
-                  <Loader2 size={24} className="animate-spin text-yellow mr-2" /> Loading editor...
-                </div>
-              )}
-            </div>
+            {!showPreview ? (
+              <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
+                {isEditorReady ? (
+                  <CKEditor
+                    editor={ClassicEditor} config={editorConfig} data={formData.content}
+                    onReady={(editor: any) => { editorRef.current = editor; }}
+                    onChange={(event: any, editor: any) => { setFormData({ ...formData, content: editor.getData() }); }}
+                  />
+                ) : (
+                  <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
+                    <Loader2 size={24} className="animate-spin text-yellow mr-2" /> Loading editor...
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="border border-slate-200 dark:border-white/10 min-h-[400px] p-4 sm:p-6 bg-white dark:bg-slate-950">
+                {formData.content ? (
+                  <div className="article-body-custom">
+                    {parse(formData.content)}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 py-16">
+                    <Gift size={48} className="mb-3 opacity-30" />
+                    <p className="text-sm">No content yet — switch back to Edit and write the offer.</p>
+                  </div>
+                )}
+              </div>
+            )}
             {isUploading && (
               <div className="mt-2 flex items-center gap-2 text-sm text-yellow">
                 <Loader2 size={16} className="animate-spin" /> Uploading image...
@@ -795,7 +843,6 @@ export default function EditOfferPage() {
           </div>
         </div>
 
-        {/* SIDEBAR */}
         <div className="lg:col-span-1 space-y-6">
           <div className="flex sm:hidden gap-1 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-1">
             <button onClick={() => setActiveTab('seo')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'seo' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40'}`}>SEO</button>
@@ -803,7 +850,6 @@ export default function EditOfferPage() {
             <button onClick={() => setActiveTab('meta')} className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'meta' ? 'bg-yellow text-slate-950' : 'text-slate-500 dark:text-white/40'}`}>Meta</button>
           </div>
 
-          {/* SEO Analysis */}
           <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'seo' ? 'block' : 'hidden sm:block'}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -865,7 +911,6 @@ export default function EditOfferPage() {
             )}
           </div>
 
-          {/* Publish Settings */}
           <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'settings' ? 'block' : 'hidden sm:block'}`}>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Publish Settings</h2>
             <div className="space-y-3">
@@ -878,7 +923,6 @@ export default function EditOfferPage() {
             </div>
           </div>
 
-          {/* Meta Tags */}
           <div className={`bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 ${activeTab === 'meta' ? 'block' : 'hidden sm:block'}`}>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
               <Tag size={18} className="text-yellow" /> Meta Tags
@@ -901,7 +945,6 @@ export default function EditOfferPage() {
             </div>
           </div>
 
-          {/* SEO Score Summary */}
           {seoResults && (
             <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6 hidden sm:block">
               <div className="flex items-center justify-between">
@@ -916,7 +959,6 @@ export default function EditOfferPage() {
         </div>
       </div>
 
-      {/* ✅ Media Library Popup Modal */}
       {isMediaModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">

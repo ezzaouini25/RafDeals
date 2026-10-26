@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import parse from 'html-react-parser';
 import {
   ArrowLeft, Save, Loader2, X, AlertCircle, CheckCircle, Trash2, Sparkles,
   FileText, Tag, Search, TrendingUp, AlertTriangle, Check, Circle, CircleAlert,
-  CircleCheck, Upload, Edit, Users, FolderOpen, Eye as EyeIcon,
-  Image as ImageIcon, // ✅ Added for Media Library
+  CircleCheck, Upload, Edit, Users, FolderOpen, Eye as EyeIcon, EyeOff,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 // CKEditor imports
@@ -21,7 +22,7 @@ import {
 import 'ckeditor5/ckeditor5.css';
 
 // SEO Packages
-import { parse } from 'node-html-parser';
+import { parse as parseHtml } from 'node-html-parser';
 import readingTime from 'reading-time';
 
 // ✅ Offer insertion toolbar
@@ -131,7 +132,7 @@ function analyzeSEO(content: string, focusKeyword: string, title: string, metaDe
     return results;
   }
 
-  const html = parse(content);
+  const html = parseHtml(content);
   const textContent = html.textContent || '';
   const wordCount = textContent.split(/\s+/).filter(w => w.length > 0).length;
   const readingStats = readingTime(textContent);
@@ -222,6 +223,9 @@ export default function EditArticlePage() {
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
 
+  // ✅ NEW: Preview toggle
+  const [showPreview, setShowPreview] = useState(false);
+
   // ✅ Media Library States
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [mediaImages, setMediaImages] = useState<string[]>([]);
@@ -286,7 +290,6 @@ export default function EditArticlePage() {
     return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   };
 
-  // ✅ دالة فتح المكتبة
   const openMediaLibrary = async (type: 'cover' | 'content') => {
     setMediaInsertType(type);
     setIsMediaModalOpen(true);
@@ -294,7 +297,7 @@ export default function EditArticlePage() {
     try {
       const res = await fetch('/api/admin/media?folder=articles');
       if (!res.ok) throw new Error('Failed to fetch images');
-      
+
       const data = await res.json();
       setMediaImages(data.images || []);
     } catch (err) {
@@ -306,7 +309,6 @@ export default function EditArticlePage() {
     }
   };
 
-  // ✅ دالة حذف الصورة
   const handleDeleteImage = async (e: React.MouseEvent, url: string) => {
     e.stopPropagation();
     if (!confirm('Are you sure you want to delete this image permanently?')) return;
@@ -339,7 +341,7 @@ export default function EditArticlePage() {
           const errorData = await res.json();
           throw new Error(errorData.error || 'Failed to fetch article');
         }
-        
+
         const data = await res.json();
         const article = data.article;
         if (!article) throw new Error('Article not found');
@@ -472,6 +474,14 @@ export default function EditArticlePage() {
       showToast('Please select an author', 'error'); setSaving(false); return;
     }
 
+    // ✅ NEW: Sanity check
+    const plainText = formData.content.replace(/<[^>]*>/g, '').trim();
+    if (!plainText) {
+      showToast('Content is empty — write the article before saving.', 'error');
+      setSaving(false);
+      return;
+    }
+
     try {
       let coverImageUrl = formData.cover_image;
       if (removeExistingImage) coverImageUrl = '';
@@ -511,6 +521,19 @@ export default function EditArticlePage() {
     }
   };
 
+  // ✅ NEW: Ctrl+S shortcut
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (!saving) handleSubmit(e as any);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, saving]);
+
   const getStatusColor = (status: string) => status === 'success' ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : status === 'warning' ? 'text-amber-400 border-amber-500/20 bg-amber-500/5' : 'text-rose-400 border-rose-500/20 bg-rose-500/5';
   const getScoreColor = (score: number) => score >= 80 ? 'text-emerald-400' : score >= 50 ? 'text-amber-400' : 'text-rose-400';
   const getScoreBg = (score: number) => score >= 80 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-rose-500';
@@ -546,10 +569,20 @@ export default function EditArticlePage() {
             </p>
           </div>
         </div>
-        <button onClick={handleSubmit} disabled={saving} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
-          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          {saving ? 'Saving...' : 'Update Article'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
+          >
+            {showPreview ? <EyeOff size={16} /> : <EyeIcon size={16} />}
+            {showPreview ? 'Edit' : 'Preview'}
+          </button>
+          <button onClick={handleSubmit} disabled={saving} className="flex items-center gap-2 px-6 py-2.5 bg-yellow text-slate-950 text-sm font-bold hover:bg-yellow/90 transition-colors disabled:opacity-50">
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? 'Saving...' : 'Update Article'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -558,7 +591,7 @@ export default function EditArticlePage() {
           {/* Basic Info */}
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 sm:p-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Basic Information</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Title *</label>
@@ -630,7 +663,7 @@ export default function EditArticlePage() {
                 </div>
               </div>
 
-              {/* ✅ Cover Image Upload + Browse */}
+              {/* Cover Image Upload + Browse */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 mb-1.5">Cover Image</label>
                 <div className="flex flex-col items-center justify-center w-full">
@@ -653,7 +686,7 @@ export default function EditArticlePage() {
                         </div>
                         <input type="file" accept="image/*" onChange={handleCoverImageUpload} className="hidden" />
                       </label>
-                      
+
                       <button
                         type="button" onClick={() => openMediaLibrary('cover')}
                         className="w-full py-2.5 bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
@@ -678,7 +711,6 @@ export default function EditArticlePage() {
               onDealInserted={(deal) => showToast(`Inserted deal: ${deal.title}`, 'success')}
             />
 
-            {/* ✅ زر إدراج صورة في المحتوى من المكتبة */}
             <div className="mb-4 mt-2">
               <button
                 type="button"
@@ -690,19 +722,35 @@ export default function EditArticlePage() {
               </button>
             </div>
 
-            <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
-              {isEditorReady ? (
-                <CKEditor
-                  editor={ClassicEditor} config={editorConfig} data={formData.content}
-                  onReady={(editor: any) => { editorRef.current = editor; }}
-                  onChange={(event: any, editor: any) => { setFormData({ ...formData, content: editor.getData() }); }}
-                />
-              ) : (
-                <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
-                  <Loader2 size={24} className="animate-spin text-yellow mr-2" /> Loading editor...
-                </div>
-              )}
-            </div>
+            {!showPreview ? (
+              <div className="border border-slate-200 dark:border-white/10 overflow-hidden min-h-[400px]">
+                {isEditorReady ? (
+                  <CKEditor
+                    editor={ClassicEditor} config={editorConfig} data={formData.content}
+                    onReady={(editor: any) => { editorRef.current = editor; }}
+                    onChange={(event: any, editor: any) => { setFormData({ ...formData, content: editor.getData() }); }}
+                  />
+                ) : (
+                  <div className="h-[400px] bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400">
+                    <Loader2 size={24} className="animate-spin text-yellow mr-2" /> Loading editor...
+                  </div>
+                )}
+              </div>
+            ) : (
+              // ✅ NEW: HTML preview
+              <div className="border border-slate-200 dark:border-white/10 min-h-[400px] p-4 sm:p-6 bg-white dark:bg-slate-950">
+                {formData.content ? (
+                  <div className="article-body-custom">
+                    {parse(formData.content)}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 py-16">
+                    <FileText size={48} className="mb-3 opacity-30" />
+                    <p className="text-sm">No content yet — switch back to Edit and write the article.</p>
+                  </div>
+                )}
+              </div>
+            )}
             {isUploading && (
               <div className="mt-2 flex items-center gap-2 text-sm text-yellow">
                 <Loader2 size={16} className="animate-spin" /> Uploading image...
@@ -832,7 +880,7 @@ export default function EditArticlePage() {
         </div>
       </div>
 
-      {/* ✅ Media Library Popup Modal */}
+      {/* Media Library Popup Modal */}
       {isMediaModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { unlink } from 'fs/promises';
-import path from 'path';
+import { del } from '@vercel/blob';
 
 // ✅ GET - Fetch all legal pages
 export async function GET(request: NextRequest) {
@@ -128,7 +127,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // ✅ STEP 1: Get the page content before deleting
+    // STEP 1: Get the page content before deleting
     const [rows] = await pool.execute(
       'SELECT content FROM legal_pages WHERE id = ?',
       [id]
@@ -145,7 +144,7 @@ export async function DELETE(request: NextRequest) {
     const page = pages[0];
     const content = page.content || '';
 
-    // ✅ STEP 2: Extract image URLs from content
+    // STEP 2: Extract image URLs from content
     const imageUrls: string[] = [];
     const imgRegex = /<img[^>]+src=["']([^"']+)["']/g;
     let match;
@@ -156,20 +155,27 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // ✅ STEP 3: Delete the page from database
+    // STEP 3: Delete the page from database
     await pool.execute('DELETE FROM legal_pages WHERE id = ?', [id]);
 
-    // ✅ STEP 4: Delete the images from filesystem
+    // STEP 4: Delete the images from Vercel Blob
     const deletedImages: string[] = [];
-    for (const url of imageUrls) {
-      try {
-        const filePath = path.join(process.cwd(), 'public', url);
-        await unlink(filePath);
-        deletedImages.push(url);
-        console.log(`✅ Deleted image: ${filePath}`);
-      } catch (error) {
-        console.warn(`⚠️ Could not delete image: ${url}`, error);
+    const storeHost = process.env.BLOB_STORE_HOST;
+
+    if (storeHost) {
+      for (const url of imageUrls) {
+        try {
+          const cleanPath = url.startsWith('/') ? url : `/${url}`;
+          const blobUrl = `https://${storeHost}${cleanPath}`;
+          await del(blobUrl);
+          deletedImages.push(url);
+          console.log(`✅ Deleted blob: ${blobUrl}`);
+        } catch (error) {
+          console.warn(`⚠️ Could not delete blob: ${url}`, error);
+        }
       }
+    } else {
+      console.warn('⚠️ BLOB_STORE_HOST not set, skipping image deletion');
     }
 
     return NextResponse.json({

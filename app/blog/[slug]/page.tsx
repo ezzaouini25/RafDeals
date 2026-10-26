@@ -218,31 +218,11 @@ const renderContentWithOffersAndAds = async (content: string) => {
 
   const contentWithAds = insertAdsIntoContent(content);
 
-  // ✅ Split on BOTH [offer:xxx] AND [deal:xxx]
   const parts = contentWithAds.split(/\[(offer|deal):([^\]]+)\]/);
 
-  // If no shortcodes found, render whole content
   if (parts.length === 1) {
     return (
-      <div className="article-body-custom leading-relaxed text-gray-text
-        [&_p]:text-base [&_p]:sm:text-[17px] [&_p]:text-gray-text [&_p]:leading-relaxed [&_p]:mb-6
-        [&_p_strong]:text-navy [&_p_strong]:font-extrabold
-        [&_h1]:text-3xl [&_h1]:sm:text-4xl [&_h1]:font-black [&_h1]:text-navy [&_h1]:mt-12 [&_h1]:mb-6 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-border-gray/60 [&_h1]:pb-3
-        [&_h2]:text-2xl [&_h2]:sm:text-3xl [&_h2]:font-extrabold [&_h2]:text-navy [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:tracking-tight [&_h2]:flex [&_h2]:items-center [&_h2]:gap-3 [&_h2]:before:content-[''] [&_h2]:before:w-2 [&_h2]:before:h-8 [&_h2]:before:bg-yellow
-        [&_h3]:text-xl [&_h3]:font-bold [&_h3]:text-navy [&_h3]:mt-8 [&_h3]:mb-3 [&_h3]:border-l-4 [&_h3]:border-yellow [&_h3]:pl-3
-        [&_ul]:list-none [&_ul]:pl-0 [&_ul]:mb-8 [&_ul]:space-y-2.5
-        [&_ul_li]:relative [&_ul_li]:pl-8 [&_ul_li]:mb-2.5 [&_ul_li]:text-sm [&_ul_li]:sm:text-base [&_ul_li]:text-gray-text [&_ul_li]:before:content-['✓'] [&_ul_li]:before:absolute [&_ul_li]:before:left-0 [&_ul_li]:before:top-0.5 [&_ul_li]:before:text-emerald-600 [&_ul_li]:before:font-extrabold [&_ul_li]:before:bg-emerald-50 [&_ul_li]:before:px-1.5 [&_ul_li]:before:py-0.5 [&_ul_li]:before:border [&_ul_li]:before:border-emerald-200 [&_ul_li]:before:text-[10px]
-        [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-8 [&_ol]:space-y-2.5
-        [&_ol_li]:mb-2 [&_ol_li]:text-sm [&_ol_li]:sm:text-base [&_ol_li]:text-gray-text [&_ol_li]:font-semibold [&_ol_li_strong]:text-navy
-        [&_table]:w-full [&_table]:my-10 [&_table]:border-collapse [&_table]:border [&_table]:border-border-gray/70 [&_table]:shadow-md
-        [&_thead]:bg-navy [&_thead]:text-white
-        [&_th]:px-5 [&_th]:py-4 [&_th]:text-left [&_th]:text-xs [&_th]:font-black [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-white
-        [&_tr]:border-b [&_tr]:border-border-gray/30 [&_tr:last-child]:border-0 [&_tr]:hover:bg-light-gray/20 [&_tr]:transition-colors
-        [&_tr:nth-child(even)]:bg-light-gray/35
-        [&_td]:px-5 [&_td]:py-4 [&_td]:text-sm [&_td]:sm:text-base [&_td]:text-gray-text [&_td]:font-semibold
-        [&_code]:bg-light-gray [&_code]:text-pink-600 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:border [&_code]:border-border-gray/45 [&_code]:font-mono [&_code]:text-xs
-        [&_pre]:bg-navy/95 [&_pre]:text-yellow/90 [&_pre]:p-5 [&_pre]:font-mono [&_pre]:text-xs [&_pre]:sm:text-sm [&_pre]:my-8 [&_pre]:overflow-x-auto [&_pre]:shadow-lg [&_pre]:border [&_pre]:border-white/10 [&_pre]:leading-relaxed [&_pre_code]:text-yellow-hover [&_pre_code]:border-0 [&_pre_code]:p-0 [&_pre_code]:bg-transparent"
-      >
+      <div className="article-body-custom">
         {parse(contentWithAds, {
           replace: (node: any) => {
             if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-1')) {
@@ -266,35 +246,17 @@ const renderContentWithOffersAndAds = async (content: string) => {
     );
   }
 
-  // Parts alternate: text / type / slug / text / type / slug ...
   const elements = [];
   for (let i = 0; i < parts.length; i += 3) {
     const textPart = parts[i];
-    const typePart = parts[i + 1]; // 'offer' or 'deal'
-    const slugPart = parts[i + 2]; // id or slug
+    const typePart = parts[i + 1];
+    const slugPart = parts[i + 2];
 
     if (textPart) {
       elements.push(
         <div
           key={`text-${i}`}
-          className="article-body-custom leading-relaxed text-gray-text
-            [&_p]:text-base [&_p]:sm:text-[17px] [&_p]:text-gray-text [&_p]:leading-relaxed [&_p]:mb-6
-            [&_p_strong]:text-navy [&_p_strong]:font-extrabold
-            [&_h1]:text-3xl [&_h1]:sm:text-4xl [&_h1]:font-black [&_h1]:text-navy [&_h1]:mt-12 [&_h1]:mb-6 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-border-gray/60 [&_h1]:pb-3
-            [&_h2]:text-2xl [&_h2]:sm:text-3xl [&_h2]:font-extrabold [&_h2]:text-navy [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:tracking-tight [&_h2]:flex [&_h2]:items-center [&_h2]:gap-3 [&_h2]:before:content-[''] [&_h2]:before:w-2 [&_h2]:before:h-8 [&_h2]:before:bg-yellow
-            [&_h3]:text-xl [&_h3]:font-bold [&_h3]:text-navy [&_h3]:mt-8 [&_h3]:mb-3 [&_h3]:border-l-4 [&_h3]:border-yellow [&_h3]:pl-3
-            [&_ul]:list-none [&_ul]:pl-0 [&_ul]:mb-8 [&_ul]:space-y-2.5
-            [&_ul_li]:relative [&_ul_li]:pl-8 [&_ul_li]:mb-2.5 [&_ul_li]:text-sm [&_ul_li]:sm:text-base [&_ul_li]:text-gray-text [&_ul_li]:before:content-['✓'] [&_ul_li]:before:absolute [&_ul_li]:before:left-0 [&_ul_li]:before:top-0.5 [&_ul_li]:before:text-emerald-600 [&_ul_li]:before:font-extrabold [&_ul_li]:before:bg-emerald-50 [&_ul_li]:before:px-1.5 [&_ul_li]:before:py-0.5 [&_ul_li]:before:border [&_ul_li]:before:border-emerald-200 [&_ul_li]:before:text-[10px]
-            [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-8 [&_ol]:space-y-2.5
-            [&_ol_li]:mb-2 [&_ol_li]:text-sm [&_ol_li]:sm:text-base [&_ol_li]:text-gray-text [&_ol_li]:font-semibold [&_ol_li_strong]:text-navy
-            [&_table]:w-full [&_table]:my-10 [&_table]:border-collapse [&_table]:border [&_table]:border-border-gray/70 [&_table]:shadow-md
-            [&_thead]:bg-navy [&_thead]:text-white
-            [&_th]:px-5 [&_th]:py-4 [&_th]:text-left [&_th]:text-xs [&_th]:font-black [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-white
-            [&_tr]:border-b [&_tr]:border-border-gray/30 [&_tr:last-child]:border-0 [&_tr]:hover:bg-light-gray/20 [&_tr]:transition-colors
-            [&_tr:nth-child(even)]:bg-light-gray/35
-            [&_td]:px-5 [&_td]:py-4 [&_td]:text-sm [&_td]:sm:text-base [&_td]:text-gray-text [&_td]:font-semibold
-            [&_code]:bg-light-gray [&_code]:text-pink-600 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:border [&_code]:border-border-gray/45 [&_code]:font-mono [&_code]:text-xs
-            [&_pre]:bg-navy/95 [&_pre]:text-yellow/90 [&_pre]:p-5 [&_pre]:font-mono [&_pre]:text-xs [&_pre]:sm:text-sm [&_pre]:my-8 [&_pre]:overflow-x-auto [&_pre]:shadow-lg [&_pre]:border [&_pre]:border-white/10 [&_pre]:leading-relaxed [&_pre_code]:text-yellow-hover [&_pre_code]:border-0 [&_pre_code]:p-0 [&_pre_code]:bg-transparent"
+          className="article-body-custom"
           dangerouslySetInnerHTML={{ __html: textPart }}
         />
       );
@@ -380,7 +342,7 @@ export default async function BlogDetailPage({ params }: PageProps) {
   return (
     <div className="bg-white min-h-screen">
 
-      {/* HERO (unchanged) */}
+      {/* HERO */}
       <div className="relative w-full min-h-[80vh] sm:min-h-[85vh] bg-navy flex items-end overflow-hidden border-b border-border-gray/30 pt-16 sm:pt-20">
         <div className="absolute inset-0 z-0">
           <Image
@@ -505,7 +467,6 @@ export default async function BlogDetailPage({ params }: PageProps) {
             <div className="lg:col-span-4">
               <div className="sticky top-24 space-y-6">
 
-
                 {/* Article Details */}
                 <div className="bg-white border border-border-gray p-6 shadow-card">
                   <h3 className="font-bold text-navy text-sm uppercase tracking-wider mb-4 pb-3 border-b border-border-gray/50">
@@ -535,11 +496,7 @@ export default async function BlogDetailPage({ params }: PageProps) {
                   </div>
                 </div>
 
-
-
-
-
-                {/* ✅ Related Offers */}
+                {/* Related Offers */}
                 {relatedOffers.length > 0 && (
                   <div className="bg-white border border-border-gray p-6 shadow-card">
                     <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-gray/50">
@@ -547,20 +504,16 @@ export default async function BlogDetailPage({ params }: PageProps) {
                       <h3 className="font-bold text-navy text-sm uppercase tracking-wider">Related Offers</h3>
                     </div>
                     <div className="space-y-4">
-
                       {relatedOffers[0] && <OfferCard key={relatedOffers[0].id} offer={relatedOffers[0]} variant="compact" />}
-
                       {relatedOffers[1] && <OfferCard key={relatedOffers[1].id} offer={relatedOffers[1]} variant="compact" />}
-
                       {relatedOffers[2] && <OfferCard key={relatedOffers[2].id} offer={relatedOffers[2]} variant="compact" />}
-
                     </div>
                   </div>
                 )}
 
                 <AdPlacement placement="sidebar" />
 
-                {/* ✅ NEW: Related Deals */}
+                {/* Related Deals */}
                 {relatedDeals.length > 0 && (
                   <div className="bg-white border border-border-gray p-6 shadow-card">
                     <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-gray/50">

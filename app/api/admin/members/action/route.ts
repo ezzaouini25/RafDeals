@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { unlink } from 'fs/promises';
-import path from 'path';
+import { del } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,9 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ For delete, get the image_path first
     if (action === 'delete') {
-      // STEP 1: Get the image_path before deleting
       const [rows] = await pool.execute(
         'SELECT image_path FROM comments_testimonials WHERE id = ?',
         [id]
@@ -28,18 +25,19 @@ export async function POST(request: NextRequest) {
         imagePath = items[0].image_path;
       }
 
-      // STEP 2: Delete from database
       await pool.execute('DELETE FROM comments_testimonials WHERE id = ?', [id]);
 
-      // STEP 3: Delete image from filesystem
       if (imagePath) {
-        try {
-          const filePath = path.join(process.cwd(), 'public', imagePath);
-          await unlink(filePath);
-          console.log(`✅ Deleted image: ${filePath}`);
-        } catch (error) {
-          // File might not exist, log but don't fail
-          console.warn(`⚠️ Could not delete image: ${imagePath}`, error);
+        const storeHost = process.env.BLOB_STORE_HOST;
+        if (storeHost) {
+          try {
+            const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+            const blobUrl = `https://${storeHost}${cleanPath}`;
+            await del(blobUrl);
+            console.log(`✅ Deleted blob: ${blobUrl}`);
+          } catch (error) {
+            console.warn(`⚠️ Could not delete blob: ${imagePath}`, error);
+          }
         }
       }
 
@@ -49,7 +47,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ✅ Approve
     if (action === 'approve') {
       await pool.execute(
         'UPDATE comments_testimonials SET is_approved = 1 WHERE id = ?',
@@ -58,7 +55,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // ✅ Disapprove
     if (action === 'disapprove') {
       await pool.execute(
         'UPDATE comments_testimonials SET is_approved = 0 WHERE id = ?',

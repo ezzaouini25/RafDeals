@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { verifySessionToken } from '@/lib/admin-auth';
 import { cookies } from 'next/headers';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import path from 'path';
+import { put, del } from '@vercel/blob';
 
 // ============================================================
 // GET - Fetch all authors with article, offer, and deal counts
@@ -12,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_session')?.value;
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -37,7 +36,6 @@ export async function GET(request: NextRequest) {
       params.push(searchTerm);
     }
 
-    // ✅ Added deal_count
     const [authors] = await pool.execute(
       `SELECT 
         a.id, 
@@ -59,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     let totalWhereClause = 'WHERE 1=1';
     const totalParams: any[] = [];
-    
+
     if (search) {
       totalWhereClause += ' AND (name LIKE ?)';
       totalParams.push(`%${search}%`);
@@ -90,7 +88,7 @@ export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_session')?.value;
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -110,21 +108,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    let picturePath = null;
+    let picturePath: string | null = null;
 
     if (picture && picture.size > 0) {
+      if (picture.size > 4 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Image too large. Max 4MB allowed.' }, { status: 400 });
+      }
+
       const bytes = await picture.arrayBuffer();
       const buffer = Buffer.from(bytes);
-
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'authors');
-      await mkdir(uploadDir, { recursive: true });
 
       const timestamp = Date.now();
       const ext = picture.name.split('.').pop();
       const filename = `author_${timestamp}.${ext}`;
-      const filePath = path.join(uploadDir, filename);
 
-      await writeFile(filePath, buffer);
+      // ✅ Upload to Vercel Blob
+      await put(`uploads/authors/${filename}`, buffer, {
+        access: 'public',
+        addRandomSuffix: false,
+        contentType: picture.type || 'application/octet-stream',
+      });
+
       picturePath = `/uploads/authors/${filename}`;
     }
 
@@ -152,7 +156,7 @@ export async function PUT(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_session')?.value;
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -191,34 +195,35 @@ export async function PUT(request: NextRequest) {
 
     let picturePath = currentAuthor.picture;
 
+    // Remove the old picture from Blob
     if (removePicture && picturePath) {
-      const oldPath = path.join(process.cwd(), 'public', picturePath);
-      try {
-        await unlink(oldPath);
-      } catch (e) {}
+      await deleteBlobFromPath(picturePath);
       picturePath = null;
     }
 
     if (picture && picture.size > 0) {
+      if (picture.size > 4 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Image too large. Max 4MB allowed.' }, { status: 400 });
+      }
+
+      // Delete existing picture from Blob before uploading new one
       if (currentAuthor.picture) {
-        const oldPath = path.join(process.cwd(), 'public', currentAuthor.picture);
-        try {
-          await unlink(oldPath);
-        } catch (e) {}
+        await deleteBlobFromPath(currentAuthor.picture);
       }
 
       const bytes = await picture.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'authors');
-      await mkdir(uploadDir, { recursive: true });
-
       const timestamp = Date.now();
       const ext = picture.name.split('.').pop();
       const filename = `author_${timestamp}.${ext}`;
-      const filePath = path.join(uploadDir, filename);
 
-      await writeFile(filePath, buffer);
+      await put(`uploads/authors/${filename}`, buffer, {
+        access: 'public',
+        addRandomSuffix: false,
+        contentType: picture.type || 'application/octet-stream',
+      });
+
       picturePath = `/uploads/authors/${filename}`;
     }
 
@@ -245,7 +250,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_session')?.value;
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -271,11 +276,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Author not found' }, { status: 404 });
     }
 
+    // Delete the picture from Blob
     if (author.picture) {
-      const filePath = path.join(process.cwd(), 'public', author.picture);
-      try {
-        await unlink(filePath);
-      } catch (e) {}
+      await deleteBlobFromPath(author.picture);
     }
 
     await pool.execute('DELETE FROM authors WHERE id = ?', [id]);
@@ -288,5 +291,25 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Error deleting author:', error);
     return NextResponse.json({ error: 'Failed to delete author' }, { status: 500 });
+  }
+}
+
+// ============================================================
+// Helper — delete a Blob from a local-looking DB path
+// ============================================================
+async function deleteBlobFromPath(localPath: string) {
+  if (!localPath) return;
+  const storeHost = process.env.BLOB_STORE_HOST;
+  if (!storeHost) {
+    console.warn('⚠️ BLOB_STORE_HOST not set, skipping delete');
+    return;
+  }
+  try {
+    const cleanPath = localPath.startsWith('/') ? localPath : `/${localPath}`;
+    const blobUrl = `https://${storeHost}${cleanPath}`;
+    await del(blobUrl);
+    console.log(`✅ Deleted blob: ${blobUrl}`);
+  } catch (e) {
+    console.warn(`⚠️ Could not delete blob: ${localPath}`, e);
   }
 }

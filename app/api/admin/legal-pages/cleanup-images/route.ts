@@ -1,20 +1,27 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { readdir, unlink, stat } from 'fs/promises';
-import path from 'path';
+import { list, del } from '@vercel/blob';
 
 export async function POST() {
   try {
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'legal-pages');
-    
-    // Get all images in the upload folder
-    const files = await readdir(uploadDir);
-    
-    // Get all image URLs from the database
+    const folder = 'legal-pages';
+
+    // ✅ List all blobs under uploads/legal-pages/
+    const { blobs } = await list({
+      prefix: `uploads/${folder}/`,
+      limit: 1000,
+    });
+
+    // Only consider image files
+    const imageBlobs = blobs.filter(b =>
+      /\.(jpg|jpeg|png|webp|gif)$/i.test(b.pathname)
+    );
+
+    // Get all legal page content from DB
     const [rows] = await pool.execute('SELECT content FROM legal_pages');
     const allContent = (rows as any[]).map(row => row.content).join(' ');
-    
-    // Extract all image URLs from content
+
+    // Extract image URLs from content
     const usedImages: string[] = [];
     const imgRegex = /<img[^>]+src=["']([^"']+)["']/g;
     let match;
@@ -22,31 +29,29 @@ export async function POST() {
       usedImages.push(match[1]);
     }
 
-    // Find orphaned images (files not referenced in any page)
-    const orphanedFiles: string[] = [];
-    for (const file of files) {
-      const filePath = `/uploads/legal-pages/${file}`;
-      if (!usedImages.includes(filePath)) {
-        orphanedFiles.push(filePath);
-      }
-    }
+    // Find orphaned blobs: pathname not referenced in any page
+    const orphanedBlobs = imageBlobs.filter(blob => {
+      const localPath = `/${blob.pathname}`; // "/uploads/legal-pages/x.webp"
+      return !usedImages.includes(localPath);
+    });
 
-    // Delete orphaned images
+    // Delete orphaned blobs
     let deletedCount = 0;
-    for (const filePath of orphanedFiles) {
+    for (const blob of orphanedBlobs) {
       try {
-        const fullPath = path.join(process.cwd(), 'public', filePath);
-        await unlink(fullPath);
+        // blob.url is the full https://...blob... URL — del() accepts it directly
+        await del(blob.url);
         deletedCount++;
+        console.log(`✅ Deleted orphan: ${blob.pathname}`);
       } catch (error) {
-        console.warn(`⚠️ Could not delete: ${filePath}`, error);
+        console.warn(`⚠️ Could not delete: ${blob.pathname}`, error);
       }
     }
 
     return NextResponse.json({
       success: true,
-      totalFiles: files.length,
-      orphanedFiles: orphanedFiles.length,
+      totalFiles: imageBlobs.length,
+      orphanedFiles: orphanedBlobs.length,
       deleted: deletedCount,
     });
 

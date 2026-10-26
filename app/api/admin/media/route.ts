@@ -1,25 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readdir } from 'fs/promises';
-import path from 'path';
+import { list } from '@vercel/blob';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const folder = searchParams.get('folder') || 'articles'; // اسم المجلد المطلوب
+    const folder = searchParams.get('folder') || 'articles';
 
-    const dirPath = path.join(process.cwd(), 'public', 'uploads', folder);
-    
-    // قراءة الملفات داخل المجلد
-    const files = await readdir(dirPath).catch(() => []);
-    
-    // تصفية الصور فقط وعمل روابط لها
-    const images = files
-      .filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f))
-      .map(f => `/uploads/${folder}/${f}`)
-      .reverse(); // الصور الأحدث تظهر أولاً
+    // ✅ List blobs under uploads/{folder}/
+    const { blobs } = await list({
+      prefix: `uploads/${folder}/`,
+      limit: 1000,
+    });
+
+    // Filter to images, build local-looking paths, newest first
+    const images = blobs
+      .filter(b => /\.(jpg|jpeg|png|webp|gif)$/i.test(b.pathname))
+      .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())
+      .map(b => {
+        // b.pathname is like "uploads/articles/offer_123.webp"
+        // Strip the leading "uploads/" so we can reconstruct /uploads/...
+        return `/${b.pathname}`;
+      });
 
     return NextResponse.json({ images });
   } catch (error) {
+    console.error('Error listing images:', error);
     return NextResponse.json({ images: [] });
   }
 }

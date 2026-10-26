@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Search, Filter, ArrowUpDown, X, ChevronDown } from 'lucide-react';
@@ -19,7 +19,7 @@ interface BlogFiltersProps {
   paginatedCount?: number;
 }
 
-export default function BlogFilters({
+function BlogFiltersInner({
   search: initialSearch,
   category: initialCategory,
   sort: initialSort,
@@ -39,7 +39,6 @@ export default function BlogFilters({
   const [categoryValue, setCategoryValue] = useState(initialCategory);
   const [sortValue, setSortValue] = useState(initialSort);
 
-  // Update local state when props change
   useEffect(() => {
     setSearchValue(initialSearch);
     setCategoryValue(initialCategory);
@@ -57,7 +56,6 @@ export default function BlogFilters({
       }
     });
     
-    // Clean up empty params
     if (params.get('search') === '') params.delete('search');
     if (params.get('category') === 'all') params.delete('category');
     if (params.get('sort') === 'newest') params.delete('sort');
@@ -101,7 +99,6 @@ export default function BlogFilters({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex flex-wrap items-center gap-3">
           
-          {/* Back to All Articles - Only on category page */}
           {isCategoryPage && (
             <>
               <Link
@@ -114,7 +111,6 @@ export default function BlogFilters({
             </>
           )}
 
-          {/* Search */}
           <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-[160px] max-w-[320px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-soft-navy" />
             <input
@@ -136,7 +132,6 @@ export default function BlogFilters({
             )}
           </form>
 
-          {/* Category Filter */}
           <div className="relative flex items-center">
             <Filter size={16} className="absolute left-3 text-soft-navy pointer-events-none z-10" />
             <select
@@ -154,7 +149,6 @@ export default function BlogFilters({
             <ChevronDown size={14} className="absolute right-3 text-gray-text/50 pointer-events-none" />
           </div>
 
-          {/* Sort */}
           <div className="relative flex items-center">
             <ArrowUpDown size={16} className="absolute left-3 text-soft-navy pointer-events-none z-10" />
             <select
@@ -171,7 +165,6 @@ export default function BlogFilters({
             <ChevronDown size={14} className="absolute right-3 text-gray-text/50 pointer-events-none" />
           </div>
 
-          {/* Results Count */}
           <span className="ml-auto text-sm text-soft-navy font-medium whitespace-nowrap">
             {isCategoryPage ? (
               `${paginatedCount || 0} of ${totalArticles} articles`
@@ -182,5 +175,13 @@ export default function BlogFilters({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function BlogFilters(props: BlogFiltersProps) {
+  return (
+    <Suspense fallback={null}>
+      <BlogFiltersInner {...props} />
+    </Suspense>
   );
 }

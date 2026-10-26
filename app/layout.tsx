@@ -6,13 +6,7 @@ import HeaderScripts from '@/components/HeaderScripts';
 import PopupAd from '@/components/ui/PopupAd';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import CookieConsent from '@/components/ui/CookieConsent';
-import {
-  getCategories,
-  getFeaturedOffers,
-  getFeaturedDeals,
-  getLatestArticles,
-  getHomepageCounters,
-} from '@/lib/queries';
+import { getCategories } from '@/lib/queries';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -23,18 +17,12 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-// ============================================================
-// CONFIGURATION CONSTANTS
-// ============================================================
 const SITE_URL = 'https://rafdeals.com';
 const SITE_NAME = 'RafDeals';
 const DEFAULT_TITLE = 'RafDeals | Verified Online Offers & Exclusive Deals';
 const DEFAULT_DESCRIPTION =
   'Discover verified online offers, signup bonuses, cashback opportunities, and exclusive deals on RafDeals. Review offer details and terms before participating.';
 
-// ============================================================
-// VIEWPORT
-// ============================================================
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -43,9 +31,6 @@ export const viewport: Viewport = {
   colorScheme: 'light',
 };
 
-// ============================================================
-// METADATA
-// ============================================================
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -125,167 +110,7 @@ export const metadata: Metadata = {
   },
 };
 
-// ============================================================
-// JSON-LD STRUCTURED DATA (Reuses pre-fetched categories)
-// ============================================================
-async function HomepageJsonLd({ categories }: { categories: any[] }) {
-  const [featuredOffers, featuredDeals, latestArticles, counters] =
-    await Promise.all([
-      getFeaturedOffers(6),
-      getFeaturedDeals(6),
-      getLatestArticles(6),
-      getHomepageCounters(),
-    ]);
-
-  const offerItems = (featuredOffers || []).map((offer, index) => ({
-    '@type': 'ListItem',
-    position: index + 1,
-    url: `${SITE_URL}/offers/${offer.slug}`,
-    name: offer.title,
-  }));
-
-  const dealItems = (featuredDeals || []).map((deal, index) => ({
-    '@type': 'ListItem',
-    position: index + 1,
-    url: `${SITE_URL}/deals/${deal.slug}`,
-    name: deal.title,
-  }));
-
-  const articleItems = (latestArticles || []).map((article, index) => ({
-    '@type': 'ListItem',
-    position: index + 1,
-    url: `${SITE_URL}/blog/${article.slug}`,
-    name: article.title,
-  }));
-
-  const categoryItems = (categories || []).map((category, index) => {
-    let basePath = 'blog';
-    if (category.type === 'offers') basePath = 'offers';
-    else if (category.type === 'deals') basePath = 'deals';
-
-    return {
-      '@type': 'ListItem',
-      position: index + 1,
-      name: category.name,
-      url: `${SITE_URL}/${basePath}/category/${category.slug}`,
-    };
-  });
-
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'WebSite',
-        '@id': `${SITE_URL}#website`,
-        url: SITE_URL,
-        name: SITE_NAME,
-        description: DEFAULT_DESCRIPTION,
-        inLanguage: 'en-US',
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: {
-            '@type': 'EntryPoint',
-            urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
-          },
-          'query-input': 'required name=search_term_string',
-        },
-      },
-      {
-        '@type': 'Organization',
-        '@id': `${SITE_URL}#organization`,
-        name: SITE_NAME,
-        url: SITE_URL,
-        logo: {
-          '@type': 'ImageObject',
-          url: `${SITE_URL}/img/logo.png`,
-          width: 512,
-          height: 512,
-          caption: `${SITE_NAME} Logo`,
-        },
-        description: `${SITE_NAME} is a curated platform connecting users with verified online offers and exclusive deals from trusted brands.`,
-        email: 'support@rafdeals.com',
-        foundingDate: '2026',
-        sameAs: [
-          'https://twitter.com/rafdeals',
-          'https://facebook.com/rafdeals',
-          'https://instagram.com/rafdeals',
-        ],
-        contactPoint: {
-          '@type': 'ContactPoint',
-          email: 'support@rafdeals.com',
-          contactType: 'customer service',
-          availableLanguage: ['English'],
-          url: `${SITE_URL}/contact`,
-        },
-      },
-      {
-        '@type': 'WebPage',
-        '@id': `${SITE_URL}#webpage`,
-        url: SITE_URL,
-        name: DEFAULT_TITLE,
-        description: DEFAULT_DESCRIPTION,
-        isPartOf: { '@id': `${SITE_URL}#website` },
-        inLanguage: 'en-US',
-        breadcrumb: { '@id': `${SITE_URL}#breadcrumb` },
-        primaryImageOfPage: {
-          '@type': 'ImageObject',
-          url: `${SITE_URL}/img/og-default.jpg`,
-          width: 1254,
-          height: 1254,
-        },
-      },
-      {
-        '@type': 'BreadcrumbList',
-        '@id': `${SITE_URL}#breadcrumb`,
-        itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-        ],
-      },
-      {
-        '@type': 'ItemList',
-        name: 'Featured Verified Offers',
-        url: `${SITE_URL}/offers`,
-        itemListElement: offerItems,
-        numberOfItems: offerItems.length,
-      },
-      {
-        '@type': 'ItemList',
-        name: 'Featured Exclusive Deals',
-        url: `${SITE_URL}/deals`,
-        itemListElement: dealItems,
-        numberOfItems: dealItems.length,
-      },
-      {
-        '@type': 'ItemList',
-        name: 'Latest Deals & Offers Articles',
-        url: `${SITE_URL}/blog`,
-        itemListElement: articleItems,
-        numberOfItems: articleItems.length,
-      },
-      {
-        '@type': 'ItemList',
-        name: 'Offers & Deals Categories',
-        itemListElement: categoryItems,
-        numberOfItems: categoryItems.length,
-      },
-    ],
-  };
-
-  const escapedJsonLd = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: escapedJsonLd }}
-    />
-  );
-}
-
-// ============================================================
-// ROOT LAYOUT
-// ============================================================
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Fetch categories once for both layout wrapping and JSON-LD generation
   const allCategories = await getCategories();
 
   const offerCategories = allCategories.filter(
@@ -298,8 +123,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     (c: any) => c.type === 'deals' || c.type === 'both'
   );
 
-  const jsonLdComponent = await HomepageJsonLd({ categories: allCategories });
-
   const preconnectLinks = ['https://images.unsplash.com'];
 
   return (
@@ -310,7 +133,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ))}
 
         <HeaderScripts placement="head_open" />
-        {jsonLdComponent}
         <HeaderScripts placement="head_close" />
       </head>
       <body
@@ -332,7 +154,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <SpeedInsights />
         <Analytics />
-        {/* ✅ Google Analytics - Add this here */}
         <GoogleAnalytics gaId="G-3X5GSFFH9Q" />
         <HeaderScripts placement="body_close" />
       </body>
@@ -340,7 +161,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   );
 }
 
-// ============================================================
-// REVALIDATE
-// ============================================================
 export const revalidate = 3600;

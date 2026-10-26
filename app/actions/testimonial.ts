@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import pool from '@/lib/db';
 import { checkBlockStatus } from '@/lib/queries';
 import { revalidatePath } from 'next/cache';
-import { writeFile, mkdir } from 'fs/promises';
+import { put } from '@vercel/blob';
 import path from 'path';
 
 export async function getTestimonials() {
@@ -75,21 +75,30 @@ export async function submitTestimonial(formData: FormData) {
     }
 
     let imagePath = null;
-    
+
     if (proofImage && proofImage.size > 0) {
+      // Size guard — Vercel functions cap request bodies at 4.5 MB
+      if (proofImage.size > 4 * 1024 * 1024) {
+        return { success: false, error: 'Image too large. Max 4MB allowed.' };
+      }
+
       const bytes = await proofImage.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      
+
       const timestamp = Date.now();
       const ext = path.extname(proofImage.name);
       const filename = `testimonial_${timestamp}_${name.replace(/\s/g, '_')}${ext}`;
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'testimonials');
-      
-      await mkdir(uploadDir, { recursive: true });
-      
-      const filePath = path.join(uploadDir, filename);
-      await writeFile(filePath, buffer);
-      
+
+      // ✅ Upload to Vercel Blob instead of writing to /public/uploads
+      const blob = await put(`uploads/testimonials/${filename}`, buffer, {
+        access: 'public',
+        addRandomSuffix: false,
+        contentType: proofImage.type || 'application/octet-stream',
+      });
+
+      console.log('✅ Testimonial image uploaded to Blob:', blob.url);
+
+      // Keep the same local-looking path — the rewrite in next.config.js maps it to Blob
       imagePath = `/uploads/testimonials/${filename}`;
     }
 

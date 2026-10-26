@@ -176,8 +176,8 @@ export default function OffersList({ initialOffers, categories = [] }: OffersLis
         
         <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="max-w-3xl">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">Money-Making Offers</h1>
-            <p className="text-white/80 text-sm sm:text-base mt-2 max-w-xl">Browse and compare legitimate opportunities to earn extra cash online.</p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">Browse All Active Offers, Bonuses & Payouts</h1>
+            <p className="text-white/80 text-sm sm:text-base mt-2 max-w-xl">Browse trusted online opportunities, bank bonuses, and exclusive rewards.</p>
             <div className="flex flex-wrap items-center gap-3 mt-4">
               <Link href="#offers-grid" className="inline-flex items-center gap-2 px-5 py-2 bg-yellow text-navy font-bold text-sm border border-yellow hover:bg-yellow-hover transition-colors">
                 Browse Offers <ArrowRight size={14} />

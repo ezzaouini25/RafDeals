@@ -3,8 +3,7 @@ import { cookies } from 'next/headers';
 import pool from '@/lib/db';
 import { verifySessionToken } from '@/lib/admin-auth';
 import crypto from 'crypto';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import path from 'path';
+import { put, del } from '@vercel/blob';
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -15,6 +14,26 @@ async function getCurrentUser() {
   const token = cookieStore.get('admin_session')?.value;
   if (!token) return null;
   return verifySessionToken(token);
+}
+
+// ============================================================
+// Helper — delete a Blob from a local-looking DB path
+// ============================================================
+async function deleteBlobFromPath(localPath: string) {
+  if (!localPath) return;
+  const storeHost = process.env.BLOB_STORE_HOST;
+  if (!storeHost) {
+    console.warn('⚠️ BLOB_STORE_HOST not set, skipping delete');
+    return;
+  }
+  try {
+    const cleanPath = localPath.startsWith('/') ? localPath : `/${localPath}`;
+    const blobUrl = `https://${storeHost}${cleanPath}`;
+    await del(blobUrl);
+    console.log(`✅ Deleted blob: ${blobUrl}`);
+  } catch (e) {
+    console.warn(`⚠️ Could not delete blob: ${localPath}`, e);
+  }
 }
 
 // ============================================================
@@ -56,9 +75,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ✅ Receive FormData (to support image uploads)
     const formData = await request.formData();
-    
+
     const name = formData.get('name') as string;
     const username = formData.get('username') as string;
     const email = formData.get('email') as string;
@@ -123,42 +141,38 @@ export async function PUT(request: NextRequest) {
       values.push(hashedNew);
     }
 
-    // ✅ Handle Image Upload
-    let picturePath = currentUser.picture;
-
-    if (removePicture && picturePath) {
-      try {
-        const oldPath = path.join(process.cwd(), 'public', picturePath);
-        await unlink(oldPath);
-      } catch (e) {}
-      picturePath = null;
+    // Handle image removal
+    if (removePicture && currentUser.picture) {
+      await deleteBlobFromPath(currentUser.picture);
       updates.push('picture = ?');
       values.push(null);
     }
 
+    // Handle new image upload
     if (pictureFile && pictureFile.size > 0) {
-      // Delete old picture if exists
+      if (pictureFile.size > 4 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Image too large. Max 4MB allowed.' }, { status: 400 });
+      }
+
+      // Delete old picture from Blob if exists
       if (currentUser.picture) {
-        try {
-          const oldPath = path.join(process.cwd(), 'public', currentUser.picture);
-          await unlink(oldPath);
-        } catch (e) {}
+        await deleteBlobFromPath(currentUser.picture);
       }
 
       const bytes = await pictureFile.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'users');
-      await mkdir(uploadDir, { recursive: true });
-
       const timestamp = Date.now();
       const ext = pictureFile.name.split('.').pop();
       const filename = `user_${sessionUser.id}_${timestamp}.${ext}`;
-      const filePath = path.join(uploadDir, filename);
 
-      await writeFile(filePath, buffer);
-      picturePath = `/uploads/users/${filename}`;
-      
+      await put(`uploads/users/${filename}`, buffer, {
+        access: 'public',
+        addRandomSuffix: false,
+        contentType: pictureFile.type || 'application/octet-stream',
+      });
+
+      const picturePath = `/uploads/users/${filename}`;
       updates.push('picture = ?');
       values.push(picturePath);
     }
