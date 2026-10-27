@@ -54,9 +54,9 @@ export default function PopupAd() {
       try {
         console.log('🔍 Fetching popup sponsor...');
         
-        const res = await fetch(`/api/public/sponsor?placement=popup&_=${Date.now()}`, {
-          cache: 'no-store'
-        });
+        // ✅ Removed `&_=${Date.now()}` cache-buster and `cache: 'no-store'`
+        // so the browser/Vercel CDN can reuse the `revalidate = 600` cached response.
+        const res = await fetch('/api/public/sponsor?placement=popup');
         
         console.log('📡 Response status:', res.status);
         
@@ -133,7 +133,7 @@ export default function PopupAd() {
   }, []);
 
   // ============================================================
-  // POPUP LOGIC - SHOW AFTER 5 SECONDS (TEST)
+  // POPUP LOGIC
   // ============================================================
 
   useEffect(() => {
@@ -179,16 +179,17 @@ export default function PopupAd() {
       trackImpression(sponsor.id);
     }
 
-    console.log(`⏳ Popup will show in 5 seconds...`);
+    console.log(`⏳ Popup will show in 5.5 minutes...`);
 
-    // ✅ SIMPLE TIMER - Show popup after 5 seconds
+    // Popup delay — 333000 ms = 5.5 minutes (production-style delay).
+    // For fast local testing, change to 5000 (5 s).
     timerRef.current = setTimeout(() => {
       if (isMounted.current) {
         console.log('🎯 POPUP SHOWING NOW!');
         setIsVisible(true);
         setCookie('popup_last_shown', String(Date.now()));
       }
-    }, 333000); // 5 seconds for testing
+    }, 333000);
 
     return () => {
       if (timerRef.current) {

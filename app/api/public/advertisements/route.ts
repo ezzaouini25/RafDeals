@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
+// ✅ Cache this API response on Vercel's CDN for 10 minutes.
+// Every visitor in that window gets the same cached response —
+// no function invocation, no DB query.
+export const revalidate = 600;
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

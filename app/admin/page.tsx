@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -476,7 +476,7 @@ function ModernAreaChartCard({
   label1,
   label2,
   showClicks = true,
-  chartHeight = 'h-75',
+  chartHeight = 'h-72',
 }: {
   title: string;
   icon: any;
@@ -813,10 +813,15 @@ function ContactMessagesCard({ messages }: { messages?: ContactMessageItem[] }) 
   const [selectedMessage, setSelectedMessage] = useState<ContactMessageItem | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleCopyEmail = (email: string) => {
-    navigator.clipboard.writeText(email);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // ✅ Async + try/catch — clipboard.writeText can reject on HTTP or denied permission
+  const handleCopyEmail = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard not available (HTTP, denied permission, etc.)
+    }
   };
 
   const getAvatarColor = (name: string) => {
@@ -1275,14 +1280,14 @@ export default function AdminDashboard() {
   const [topOffersFilter, setTopOffersFilter] = useState<TopPeriod>('today');
   const [topDealsFilter, setTopDealsFilter] = useState<TopPeriod>('today');
 
-  const fetchDashboard = async () => {
+  // ✅ useCallback — stable identity for the effect, no eslint-disable needed
+  const fetchDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/admin/dashboard?filter=${currentFilter}`, {
         cache: 'no-store',
         credentials: 'include',
-        headers: { 'Cache-Control': 'no-cache' },
       });
       if (!res.ok) throw new Error('Failed to fetch dashboard data');
       const result = (await res.json()) as DashboardData;
@@ -1292,12 +1297,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentFilter]);
 
   useEffect(() => {
     fetchDashboard();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFilter]);
+  }, [fetchDashboard]);
 
   const weekOffersCurrent = useMemo(() => data?.weeklyOffers?.slice(-7) ?? [], [data]);
   const weekOffersPrevious = useMemo(() => data?.weeklyOffers?.slice(-14, -7) ?? [], [data]);
@@ -1350,8 +1354,6 @@ export default function AdminDashboard() {
       {/* TOP HEADER */}
       <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-6 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
-          </div>
           <h1 className="mt-2 flex items-center gap-2.5 text-2xl font-black uppercase tracking-tight text-slate-900 sm:text-3xl dark:text-white">
             <Activity size={26} className="text-amber-500" />
             Analytics Overview
@@ -1514,7 +1516,7 @@ export default function AdminDashboard() {
             label1="Views"
             label2="Clicks"
             showClicks
-            chartHeight="h-76"
+            chartHeight="h-72"
           />
 
           <ModernAreaChartCard
@@ -1530,7 +1532,7 @@ export default function AdminDashboard() {
             label1="Views"
             label2="Clicks"
             showClicks
-            chartHeight="h-75"
+            chartHeight="h-72"
           />
         </div>
 

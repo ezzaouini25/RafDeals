@@ -103,13 +103,13 @@ export function getMysqlPool(): mysql.Pool {
         database: config.database,
         ssl,
         waitForConnections: true,
-        connectionLimit: 1,        // 1 per instance — Aiven free tier safety
-        maxIdle: 1,                // match connectionLimit
-        idleTimeout: 3000,         // 3s idle close (aggressive)
+        connectionLimit: 5,        // 5 concurrent connections — safe for Aiven free tier
+        maxIdle: 5,                // keep all 5 warm
+        idleTimeout: 60000,        // keep idle connections for 60 s (was 3 s — that was the bug)
         queueLimit: 0,
         enableKeepAlive: true,
-        keepAliveInitialDelay: 0,
-        connectTimeout: 3000,      // ← 3s instead of 10s: fail fast, don't hang login
+        keepAliveInitialDelay: 10000, // start keep-alive probing after 10 s idle
+        connectTimeout: 10000,     // 10 s — Aiven cold starts sometimes take 5 s
       });
 
       // ✅ Pass the RAW pool, not the promise wrapper.

@@ -159,9 +159,11 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
       }
 
       try {
+        // ✅ Caching enabled — removed `cache: 'no-store'` so the browser
+        // and CDN can reuse Vercel's `revalidate = 600` cached response.
         const res = await fetchWithTimeout(
           `/api/public/sponsor?placement=${placement}&size=${exactSize}&all=true`,
-          { cache: 'no-store', timeout: 5000 }
+          { timeout: 5000 }
         );
 
         if (!res || !res.ok) throw new Error(`HTTP ${res?.status || 'Aborted'}`);
@@ -322,7 +324,6 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
 
   // ============================================================
   // ✅ LOADING → RENDER NOTHING
-  // No skeleton, no placeholder box — the section stays invisible.
   // ============================================================
   if (loading) {
     return null;
@@ -330,7 +331,6 @@ export default function AdPlacement({ placement, className = '' }: AdPlacementPr
 
   // ============================================================
   // ✅ NO SPONSORS / API ERROR → RENDER NOTHING
-  // No "No ads" placeholder — the section disappears entirely.
   // ============================================================
   if (!currentSponsor || sponsors.length === 0) {
     return null;

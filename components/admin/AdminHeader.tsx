@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -201,14 +201,19 @@ export default function AdminHeader({
 
   const visibleItems = menuItems.filter((item) => !item.adminOnly || userRole === 'admin');
 
-  const fetchNotifications = async () => {
+  // ✅ PERF: memoized so the effects below have stable identities
+  const fetchNotifications = useCallback(async () => {
     // ✅ Don't fetch if on login page
     if (isLoginPage) return;
 
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/notifications?status=unread', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-      
+      // ✅ cache: 'no-store' for authenticated data; removed the
+      //    no-op `Cache-Control: no-cache` header (browsers ignore it).
+      const res = await fetch('/api/admin/notifications?status=unread', {
+        cache: 'no-store',
+      });
+
       // ✅ Silent fail on 401/403 (logged out)
       if (res.status === 401 || res.status === 403) return;
 
@@ -223,16 +228,19 @@ export default function AdminHeader({
     } finally {
       setLoading(false);
     }
-  };
+  }, [isLoginPage]);
 
-  const fetchSubscriptions = async () => {
+  // ✅ PERF: memoized
+  const fetchSubscriptions = useCallback(async () => {
     // ✅ Don't fetch if on login page
     if (isLoginPage) return;
 
     setLoadingSubs(true);
     try {
-      const res = await fetch('/api/admin/subscriptions/notifications', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-      
+      const res = await fetch('/api/admin/subscriptions/notifications', {
+        cache: 'no-store',
+      });
+
       // ✅ Silent fail on 401/403
       if (res.status === 401 || res.status === 403) return;
 
@@ -246,7 +254,7 @@ export default function AdminHeader({
     } finally {
       setLoadingSubs(false);
     }
-  };
+  }, [isLoginPage]);
 
   const markAsRead = async (notification: NotificationItem) => {
     try {
@@ -283,23 +291,47 @@ export default function AdminHeader({
     }
   };
 
-  // ✅ Initial Fetch + Interval (Stops on Login Page)
+  // ============================================================
+  // ✅ PERF: split polling — notifications every 5 min,
+  //    subscriptions every 10 min. Pauses when tab is hidden,
+  //    refetches once on visibility change.
+  //    Before: 2 fetches every 30s = 240 calls/hour/tab.
+  //    After:  ~30 calls/hour/tab (24 + 6).
+  // ============================================================
   useEffect(() => {
     if (isLoginPage) return;
 
+    // Initial fetch pair
     fetchNotifications();
     fetchSubscriptions();
 
-    const interval = setInterval(() => {
-      // ✅ Only fetch if page is visible
+    const notificationsInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    const subscriptionsInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchSubscriptions();
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    // ✅ Refetch immediately when the admin comes back to the tab
+    const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         fetchNotifications();
         fetchSubscriptions();
       }
-    }, 30000);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
-    return () => clearInterval(interval);
-  }, [isLoginPage]); // Re-run when login status changes
+    return () => {
+      clearInterval(notificationsInterval);
+      clearInterval(subscriptionsInterval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isLoginPage, fetchNotifications, fetchSubscriptions]);
 
   const displayName = userName || 'User';
 

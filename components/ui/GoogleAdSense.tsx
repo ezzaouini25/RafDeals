@@ -98,8 +98,10 @@ export default function GoogleAdSense({
         setLoading(true);
         console.log('🔍 Fetching ad for size:', size);
 
-        const url = `/api/public/advertisements?size=${size}&_=${Date.now()}`;
-        const res = await fetch(url, { cache: 'no-store' });
+        // ✅ Removed `&_=${Date.now()}` cache-buster and `cache: 'no-store'`
+        // so the browser/CDN can reuse Vercel's `revalidate = 600` cached response.
+        const url = `/api/public/advertisements?size=${size}`;
+        const res = await fetch(url);
 
         const data = await res.json();
         console.log('📦 API Response:', data);
@@ -124,18 +126,14 @@ export default function GoogleAdSense({
 
   // ============================================================
   // ✅ LOADING → RENDER NOTHING
-  // No skeleton, no placeholder — the section stays invisible.
   // ============================================================
-
   if (loading) {
     return null;
   }
 
   // ============================================================
   // ✅ NO AD → RENDER NOTHING
-  // The whole section disappears — no empty gap.
   // ============================================================
-
   if (!ad) {
     return null;
   }

@@ -45,7 +45,7 @@ export default function Footer() {
     // 2. Fetch Categories (Offers & Deals)
     const fetchCategories = async () => {
       try {
-        const res = await fetch('/api/admin/categories');
+        const res = await fetch('/api/public/categories');
         if (res.ok) {
           const data = await res.json();
           const allCats = data.categories || [];
