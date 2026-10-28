@@ -267,9 +267,9 @@ export default function ArticlesPage() {
         const catRes = await fetch('/api/admin/categories');
         if (catRes.ok) {
           const catData = await catRes.json();
-          // ✅ FILTER: Only show categories with type 'articles' or 'both'
+          // ✅ FILTER: only categories with for_articles = 1
           const filteredCategories = (catData.categories || []).filter(
-            (cat: Category) => cat.type === 'articles' || cat.type === 'both'
+            (cat: any) => cat.for_articles === 1
           );
           setAllCategories(filteredCategories);
           console.log('✅ Categories loaded:', filteredCategories.length);
@@ -627,7 +627,7 @@ export default function ArticlesPage() {
             <option value="all">All Categories</option>
             {allCategories.map((cat) => (
               <option key={cat.id} value={String(cat.id)}>
-                {cat.name} {cat.type === 'both' && <span className="text-xs text-slate-400"></span>}
+                {cat.name}
               </option>
             ))}
           </select>

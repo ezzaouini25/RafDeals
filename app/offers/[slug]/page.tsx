@@ -268,12 +268,12 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
 
       {/* MAIN CONTENT */}
       <section className="py-12 sm:py-16 bg-light-gray/40">
-        <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
 
-            {/* Main Column */}
-            <div className="lg:col-span-8 space-y-8">
-              <article className="bg-white border border-border-gray/50 shadow-sm">
+            {/* Main Column — forced FIRST on mobile */}
+            <div className="lg:col-span-8 space-y-8 min-w-0 order-1 lg:order-none">
+              <article className="bg-white border border-border-gray/50 shadow-sm overflow-x-auto">
                 <div className="px-6 sm:px-10 pt-6 sm:pt-10">
                   <AdPlacement placement="offer-content" />
                 </div>
@@ -317,8 +317,8 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
               </article>
             </div>
 
-            {/* Sidebar */}
-            <aside className="lg:col-span-4 order-first lg:order-none">
+            {/* Sidebar — forced SECOND on mobile, right on desktop */}
+            <aside className="lg:col-span-4 min-w-0 self-start order-2 lg:order-none">
               <div className="sticky top-24 space-y-5">
 
                 <div className="bg-white border border-border-gray shadow-sm overflow-hidden">

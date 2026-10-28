@@ -14,7 +14,7 @@ const SITE_NAME = 'RafDeals';
 // GENERATE STATIC PARAMS
 // ============================================================
 export async function generateStaticParams() {
-  const categories = await getCategories('deals');
+  const categories = await getCategories('offers');
   return categories.map((cat) => ({
     categorySlug: cat.slug,
   }));
@@ -25,7 +25,7 @@ export async function generateStaticParams() {
 // ============================================================
 export async function generateMetadata({ params }: LayoutProps): Promise<Metadata> {
   const { categorySlug } = await params;
-  const category = await getCategoryBySlug(categorySlug);
+  const category = await getCategoryBySlug(categorySlug, 'offers');
 
   if (!category) {
     return {
@@ -35,17 +35,17 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
   }
 
   const categoryName = category.name;
-  const title = `${categoryName} Exclusive Deals & Discounts`;
-  const description = `Browse our curated collection of verified ${categoryName.toLowerCase()} exclusive deals and discounts. Manually audited promotions for maximum savings.`;
+  const title = `${categoryName} Offers & Opportunities`;
+  const description = `Browse our curated collection of verified ${categoryName.toLowerCase()} offers and money-making opportunities. Manually verified for maximum value.`;
 
   return {
     title,
     description,
-    keywords: `${categoryName.toLowerCase()}, exclusive deals, discounts, promo codes, verified deals, special offers`,
+    keywords: `${categoryName.toLowerCase()}, online offers, money making, verified offers, exclusive deals`,
     openGraph: {
       title,
       description,
-      url: `${SITE_URL}/deals/category/${categorySlug}`,
+      url: `${SITE_URL}/offers/category/${categorySlug}`,
       siteName: SITE_NAME,
       type: 'website',
       images: [
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
           url: `${SITE_URL}/img/og-default.jpg`,
           width: 1254,
           height: 1254,
-          alt: `${categoryName} Deals — ${SITE_NAME}`,
+          alt: `${categoryName} Offers — ${SITE_NAME}`,
         },
       ],
     },
@@ -66,7 +66,7 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
       site: '@rafdeals',
     },
     alternates: {
-      canonical: `${SITE_URL}/deals/category/${categorySlug}`,
+      canonical: `${SITE_URL}/offers/category/${categorySlug}`,
     },
   };
 }
@@ -74,9 +74,9 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
 // ============================================================
 // LAYOUT COMPONENT
 // ============================================================
-export default async function DealsCategoryLayout({ children, params }: LayoutProps) {
+export default async function OffersCategoryLayout({ children, params }: LayoutProps) {
   const { categorySlug } = await params;
-  const category = await getCategoryBySlug(categorySlug);
+  const category = await getCategoryBySlug(categorySlug, 'offers');
 
   if (!category) notFound();
 

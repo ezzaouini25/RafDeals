@@ -38,9 +38,13 @@ export async function GET(request: NextRequest) {
       params.push(searchTerm, searchTerm);
     }
 
-    if (typeFilter !== 'all') {
-      whereClause += ' AND c.type = ?';
-      params.push(typeFilter);
+    // Type filter now checks the correct flag column
+    if (typeFilter === 'offers') {
+      whereClause += ' AND c.for_offers = 1';
+    } else if (typeFilter === 'deals') {
+      whereClause += ' AND c.for_deals = 1';
+    } else if (typeFilter === 'articles') {
+      whereClause += ' AND c.for_articles = 1';
     }
 
     // ORDER BY
@@ -50,7 +54,8 @@ export async function GET(request: NextRequest) {
         orderBy = `ORDER BY c.name ${sortOrder}`;
         break;
       case 'type':
-        orderBy = `ORDER BY c.type ${sortOrder}`;
+        // Sort by "how many types" — categories with more types come last (or first depending on sortOrder)
+        orderBy = `ORDER BY (c.for_offers + c.for_deals + c.for_articles) ${sortOrder}`;
         break;
       case 'created_at':
         orderBy = `ORDER BY c.created_at ${sortOrder}`;
@@ -62,13 +67,15 @@ export async function GET(request: NextRequest) {
         orderBy = `ORDER BY c.name ${sortOrder}`;
     }
 
-    // ✅ FIXED: Interpolate LIMIT and OFFSET directly (MySQL 8 rejects LIMIT ? OFFSET ?)
+    // ✅ Interpolate LIMIT and OFFSET directly (MySQL 8 rejects LIMIT ? OFFSET ?)
     const [categories] = await pool.execute(
       `SELECT 
         c.id, 
         c.name, 
         c.slug, 
-        c.type, 
+        c.for_offers, 
+        c.for_deals, 
+        c.for_articles, 
         c.is_active, 
         c.created_at, 
         c.updated_at,
@@ -93,9 +100,12 @@ export async function GET(request: NextRequest) {
       totalParams.push(`%${search}%`, `%${search}%`);
     }
 
-    if (typeFilter !== 'all') {
-      totalWhereClause += ' AND type = ?';
-      totalParams.push(typeFilter);
+    if (typeFilter === 'offers') {
+      totalWhereClause += ' AND for_offers = 1';
+    } else if (typeFilter === 'deals') {
+      totalWhereClause += ' AND for_deals = 1';
+    } else if (typeFilter === 'articles') {
+      totalWhereClause += ' AND for_articles = 1';
     }
 
     const [totalResult] = await pool.execute(
@@ -134,7 +144,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, slug, type, is_active } = body;
+    const { name, slug, for_offers, for_deals, for_articles, is_active } = body;
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -144,21 +154,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
     }
 
-    const validTypes = ['offers', 'articles', 'deals', 'both'];
-    const normalizedType = validTypes.includes(type) ? type : 'offers';
+    // At least one type must be selected
+    if (!for_offers && !for_deals && !for_articles) {
+      return NextResponse.json({ error: 'Pick at least one type (Offers, Deals, or Articles)' }, { status: 400 });
+    }
 
+    const fOffers = for_offers ? 1 : 0;
+    const fDeals = for_deals ? 1 : 0;
+    const fArticles = for_articles ? 1 : 0;
+
+    // Duplicate check: same slug AND same flag combination → reject.
+    // Same slug, different flag combo → allowed.
     const [existing] = await pool.execute(
-      'SELECT id FROM categories WHERE slug = ?',
-      [slug.trim()]
+      `SELECT id FROM categories 
+       WHERE slug = ? AND for_offers = ? AND for_deals = ? AND for_articles = ?`,
+      [slug.trim(), fOffers, fDeals, fArticles]
     );
 
     if ((existing as any[]).length > 0) {
-      return NextResponse.json({ error: 'Slug already exists' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'A category with this slug and these exact types already exists' },
+        { status: 400 }
+      );
     }
 
+    // Keep the legacy `type` column populated for backward compat with any
+    // code path that hasn't been updated yet. Derive it from the flags.
+    const legacyType =
+      fOffers && fDeals && fArticles ? 'both' :
+      fOffers && !fDeals && !fArticles ? 'offers' :
+      !fOffers && fDeals && !fArticles ? 'deals' :
+      !fOffers && !fDeals && fArticles ? 'articles' :
+      'both'; // any multi-flag combo → 'both'
+
     const [result] = await pool.execute(
-      'INSERT INTO categories (name, slug, type, is_active) VALUES (?, ?, ?, ?)',
-      [name.trim(), slug.trim(), normalizedType, is_active ? 1 : 0]
+      `INSERT INTO categories (name, slug, for_offers, for_deals, for_articles, type, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name.trim(), slug.trim(), fOffers, fDeals, fArticles, legacyType, is_active ? 1 : 0]
     );
 
     return NextResponse.json({
@@ -198,7 +230,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, slug, type, is_active } = body;
+    const { name, slug, for_offers, for_deals, for_articles, is_active } = body;
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -208,21 +240,39 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
     }
 
-    const validTypes = ['offers', 'articles', 'deals', 'both'];
-    const normalizedType = validTypes.includes(type) ? type : 'offers';
+    if (!for_offers && !for_deals && !for_articles) {
+      return NextResponse.json({ error: 'Pick at least one type (Offers, Deals, or Articles)' }, { status: 400 });
+    }
+
+    const fOffers = for_offers ? 1 : 0;
+    const fDeals = for_deals ? 1 : 0;
+    const fArticles = for_articles ? 1 : 0;
 
     const [existing] = await pool.execute(
-      'SELECT id FROM categories WHERE slug = ? AND id != ?',
-      [slug.trim(), id]
+      `SELECT id FROM categories 
+       WHERE slug = ? AND id != ? AND for_offers = ? AND for_deals = ? AND for_articles = ?`,
+      [slug.trim(), id, fOffers, fDeals, fArticles]
     );
 
     if ((existing as any[]).length > 0) {
-      return NextResponse.json({ error: 'Slug already exists' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'A category with this slug and these exact types already exists' },
+        { status: 400 }
+      );
     }
 
+    const legacyType =
+      fOffers && fDeals && fArticles ? 'both' :
+      fOffers && !fDeals && !fArticles ? 'offers' :
+      !fOffers && fDeals && !fArticles ? 'deals' :
+      !fOffers && !fDeals && fArticles ? 'articles' :
+      'both';
+
     await pool.execute(
-      'UPDATE categories SET name = ?, slug = ?, type = ?, is_active = ? WHERE id = ?',
-      [name.trim(), slug.trim(), normalizedType, is_active ? 1 : 0, id]
+      `UPDATE categories 
+       SET name = ?, slug = ?, for_offers = ?, for_deals = ?, for_articles = ?, type = ?, is_active = ? 
+       WHERE id = ?`,
+      [name.trim(), slug.trim(), fOffers, fDeals, fArticles, legacyType, is_active ? 1 : 0, id]
     );
 
     return NextResponse.json({

@@ -40,7 +40,6 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  // Color schemes matching your layout
   const styles = {
     success: {
       bg: 'bg-[#2ecc71]',
@@ -86,20 +85,14 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
         }
       `}</style>
       <div className={`fixed top-20 right-6 z-50 w-full max-w-md ${current.bg} text-white rounded-none shadow-2xl overflow-hidden flex flex-col`}>
-        {/* Main Content Area */}
         <div className="p-4 flex items-start gap-4 relative">
-          {/* White circular icon container on the left */}
           <div className={`w-9 h-9 rounded-full ${current.iconBg} flex items-center justify-center shrink-0 shadow-sm mt-0.5`}>
             {current.icon}
           </div>
-
-          {/* Text Content */}
           <div className="flex-1 pr-6">
             <h4 className="font-bold text-base tracking-wide mb-0.5">{current.title}</h4>
             <p className="text-sm opacity-95 leading-relaxed">{message}</p>
           </div>
-
-          {/* Close Button */}
           <button 
             onClick={onClose} 
             className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors p-1"
@@ -108,8 +101,6 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
             <X size={16} strokeWidth={2.5} />
           </button>
         </div>
-
-        {/* Bottom Countdown Line (Pure CSS Keyframe Animation) */}
         <div className={`w-full h-1.5 ${current.bar} relative overflow-hidden`}>
           <div className="absolute top-0 left-0 bottom-0 bg-white/50 animate-shrink" />
         </div>
@@ -117,7 +108,6 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
     </>
   );
 }
-
 
 // ============================================================
 // FORMAT TIME AGO
@@ -142,28 +132,32 @@ function formatTimeAgo(date: string | Date): string {
 }
 
 // ============================================================
-// CATEGORY TYPE LABELS + COLORS + ICONS
+// CATEGORY TYPE — now driven by 3 flags (no more "both")
 // ============================================================
-const typeLabels: Record<string, string> = {
-  offers: 'Offers',
-  articles: 'Articles',
-  deals: 'Deals',
-  both: 'Both',
-};
+function getTypeParts(cat: { for_offers?: number; for_deals?: number; for_articles?: number }) {
+  const parts: string[] = [];
+  if (cat.for_offers === 1)   parts.push('Offers');
+  if (cat.for_deals === 1)    parts.push('Deals');
+  if (cat.for_articles === 1) parts.push('Articles');
+  return parts;
+}
 
-const typeColors: Record<string, string> = {
-  offers: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  articles: 'bg-green-500/10 text-green-600 border-green-500/20',
-  deals: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  both: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-};
+function getTypeLabel(cat: { for_offers?: number; for_deals?: number; for_articles?: number }) {
+  const parts = getTypeParts(cat);
+  return parts.length === 0 ? 'None' : parts.join(' + ');
+}
 
-const typeIcons: Record<string, any> = {
-  offers: Gift,
-  articles: FileText,
-  deals: Flame,
-  both: Layers,
-};
+function getTypeColor(cat: { for_offers?: number; for_deals?: number; for_articles?: number }) {
+  const parts = getTypeParts(cat);
+  if (parts.length === 0) return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
+  if (parts.length === 1) {
+    if (cat.for_offers === 1)   return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+    if (cat.for_deals === 1)    return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
+    if (cat.for_articles === 1) return 'bg-green-500/10 text-green-600 border-green-500/20';
+  }
+  if (parts.length === 2) return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
+  return 'bg-amber-500/10 text-amber-600 border-amber-500/20'; // all three
+}
 
 // ============================================================
 // MAIN PAGE
@@ -183,12 +177,17 @@ export default function AdminCategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedCategory, setSelectedCategory] = useState<any | null>(null);
+
+  // Form state — flags now, no more `type` enum
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
-    type: 'offers',
+    for_offers: false,
+    for_deals: false,
+    for_articles: false,
     is_active: true,
   });
+
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -226,7 +225,14 @@ export default function AdminCategoriesPage() {
   }, [search, page, sortBy, sortOrder, typeFilter]);
 
   const resetForm = () => {
-    setFormData({ name: '', slug: '', type: 'offers', is_active: true });
+    setFormData({
+      name: '',
+      slug: '',
+      for_offers: false,
+      for_deals: false,
+      for_articles: false,
+      is_active: true,
+    });
     setFormError(null);
   };
 
@@ -246,7 +252,9 @@ export default function AdminCategoriesPage() {
     setFormData({
       name: category.name,
       slug: category.slug,
-      type: category.type,
+      for_offers: category.for_offers === 1,
+      for_deals: category.for_deals === 1,
+      for_articles: category.for_articles === 1,
       is_active: category.is_active === 1,
     });
     setFormError(null);
@@ -257,6 +265,13 @@ export default function AdminCategoriesPage() {
     e.preventDefault();
     setActionLoading(true);
     setFormError(null);
+
+    // Client-side guard: at least one type
+    if (!formData.for_offers && !formData.for_deals && !formData.for_articles) {
+      setFormError('Pick at least one type (Offers, Deals, or Articles).');
+      setActionLoading(false);
+      return;
+    }
 
     try {
       const url = modalMode === 'edit' && selectedCategory
@@ -327,7 +342,9 @@ export default function AdminCategoriesPage() {
         body: JSON.stringify({
           name: category.name,
           slug: category.slug,
-          type: category.type,
+          for_offers: category.for_offers === 1,
+          for_deals: category.for_deals === 1,
+          for_articles: category.for_articles === 1,
           is_active: newStatus === 1,
         }),
       });
@@ -445,7 +462,6 @@ export default function AdminCategoriesPage() {
             <option value="offers">Offers</option>
             <option value="articles">Articles</option>
             <option value="deals">Deals</option>
-            <option value="both">Both</option>
           </select>
         </div>
       </div>
@@ -475,9 +491,7 @@ export default function AdminCategoriesPage() {
                     Slug
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                    <button onClick={() => toggleSort('type')} className="flex items-center gap-1 hover:text-slate-700">
-                      Type {getSortIcon('type')}
-                    </button>
+                    Type
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                     <button onClick={() => toggleSort('total_usage')} className="flex items-center gap-1 hover:text-slate-700">
@@ -500,9 +514,8 @@ export default function AdminCategoriesPage() {
               <tbody className="divide-y divide-slate-200">
                 {categories.map((category) => {
                   const status = getStatusBadge(category.is_active);
-                  const typeLabel = typeLabels[category.type] || category.type;
-                  const typeColor = typeColors[category.type] || 'bg-gray-500/10 text-gray-600 border-gray-500/20';
-                  const TypeIcon = typeIcons[category.type] || Tag;
+                  const typeLabel = getTypeLabel(category);
+                  const typeColor = getTypeColor(category);
                   const totalUsage = getTotalUsage(category);
 
                   return (
@@ -517,11 +530,27 @@ export default function AdminCategoriesPage() {
                         <code className="text-xs text-slate-500 bg-slate-100 px-2 py-1">/{category.slug}</code>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <TypeIcon size={14} className="text-slate-400" />
-                          <span className={`text-[10px] font-bold uppercase border px-2 py-1 ${typeColor}`}>
-                            {typeLabel}
-                          </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {category.for_offers === 1 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase border px-2 py-1 bg-blue-500/10 text-blue-600 border-blue-500/20">
+                              <Gift size={10} /> Offers
+                            </span>
+                          )}
+                          {category.for_deals === 1 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase border px-2 py-1 bg-orange-500/10 text-orange-600 border-orange-500/20">
+                              <Flame size={10} /> Deals
+                            </span>
+                          )}
+                          {category.for_articles === 1 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase border px-2 py-1 bg-green-500/10 text-green-600 border-green-500/20">
+                              <FileText size={10} /> Articles
+                            </span>
+                          )}
+                          {category.for_offers !== 1 && category.for_deals !== 1 && category.for_articles !== 1 && (
+                            <span className="text-[10px] font-bold uppercase border px-2 py-1 bg-gray-500/10 text-gray-600 border-gray-500/20">
+                              None
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -696,18 +725,53 @@ export default function AdminCategoriesPage() {
                   <p className="text-xs text-slate-400 mt-1">URL-friendly name (e.g., make-money-online)</p>
                 </div>
 
+                {/* Type — 3 independent checkboxes. No "both" anymore. */}
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Type *</label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 text-slate-900 text-sm focus:border-yellow focus:ring-1 focus:ring-yellow transition-colors"
-                  >
-                    <option value="offers">Offers</option>
-                    <option value="articles">Articles</option>
-                    <option value="deals">Deals</option>
-                    <option value="both">Both</option>
-                  </select>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Type * <span className="font-normal normal-case tracking-normal text-slate-400">(pick one or more)</span>
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <label className="flex items-center gap-3 px-3 py-2 border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formData.for_offers}
+                        onChange={(e) => setFormData({ ...formData, for_offers: e.target.checked })}
+                        className="w-4 h-4 accent-yellow"
+                      />
+                      <Gift size={16} className="text-blue-500" />
+                      <span className="text-sm text-slate-700 font-medium">Offers</span>
+                    </label>
+                    <label className="flex items-center gap-3 px-3 py-2 border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formData.for_deals}
+                        onChange={(e) => setFormData({ ...formData, for_deals: e.target.checked })}
+                        className="w-4 h-4 accent-yellow"
+                      />
+                      <Flame size={16} className="text-orange-500" />
+                      <span className="text-sm text-slate-700 font-medium">Deals</span>
+                    </label>
+                    <label className="flex items-center gap-3 px-3 py-2 border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formData.for_articles}
+                        onChange={(e) => setFormData({ ...formData, for_articles: e.target.checked })}
+                        className="w-4 h-4 accent-yellow"
+                      />
+                      <FileText size={16} className="text-green-500" />
+                      <span className="text-sm text-slate-700 font-medium">Articles</span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Saved as:{' '}
+                    <code className="text-slate-600 bg-slate-100 px-1.5 py-0.5">
+                      {[
+                        formData.for_offers && 'Offers',
+                        formData.for_deals && 'Deals',
+                        formData.for_articles && 'Articles',
+                      ].filter(Boolean).join(' + ') || 'None'}
+                    </code>
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2 pt-2">

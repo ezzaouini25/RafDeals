@@ -25,7 +25,7 @@ export async function generateStaticParams() {
 // ============================================================
 export async function generateMetadata({ params }: LayoutProps): Promise<Metadata> {
   const { categorySlug } = await params;
-  const category = await getCategoryBySlug(categorySlug);
+  const category = await getCategoryBySlug(categorySlug, 'articles');
 
   if (!category) {
     return {
@@ -76,7 +76,7 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
 // ============================================================
 export default async function BlogCategoryLayout({ children, params }: LayoutProps) {
   const { categorySlug } = await params;
-  const category = await getCategoryBySlug(categorySlug);
+  const category = await getCategoryBySlug(categorySlug, 'articles');
 
   if (!category) notFound();
 

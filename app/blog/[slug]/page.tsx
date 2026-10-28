@@ -433,12 +433,12 @@ export default async function BlogDetailPage({ params }: PageProps) {
 
       {/* Content grid */}
       <div className="bg-light-gray/40 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-            {/* Main content */}
-            <div className="lg:col-span-8">
-              <div className="bg-white border border-border-gray/50 p-6 sm:p-10 md:p-12">
+            {/* Main content — forced first on mobile */}
+            <div className="lg:col-span-8 min-w-0 order-1 lg:order-none">
+              <div className="bg-white border border-border-gray/50 p-6 sm:p-10 md:p-12 overflow-x-auto">
                 <div className="mb-6">
                   <AdPlacement placement="article-content" />
                 </div>
@@ -463,8 +463,8 @@ export default async function BlogDetailPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Sidebar */}
-            <div className="lg:col-span-4">
+            {/* Sidebar — forced after content on mobile, right side on desktop */}
+            <div className="lg:col-span-4 min-w-0 self-start order-2 lg:order-none">
               <div className="sticky top-24 space-y-6">
 
                 {/* Article Details */}

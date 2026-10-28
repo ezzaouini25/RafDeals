@@ -257,8 +257,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
 
-            {/* Main Column */}
-            <div className="lg:col-span-8 space-y-8">
+            {/* Main Column — forced first on mobile */}
+            <div className="lg:col-span-8 space-y-8 order-1 lg:order-none">
               <article className="bg-white border border-border-gray/50 shadow-sm">
                 <div className="px-6 sm:px-10 pt-6 sm:pt-10">
                   <AdPlacement placement="offer-content" />
@@ -303,8 +303,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
               </article>
             </div>
 
-            {/* Sidebar */}
-            <aside className="lg:col-span-4">
+            {/* Sidebar — forced after content on mobile, right side on desktop */}
+            <aside className="lg:col-span-4 order-2 lg:order-none">
               <div className="sticky top-24 space-y-5">
 
                 <div className="bg-white border border-border-gray shadow-sm overflow-hidden">

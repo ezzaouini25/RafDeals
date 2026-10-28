@@ -113,15 +113,9 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const allCategories = await getCategories();
 
-  const offerCategories = allCategories.filter(
-    (c: any) => c.type === 'offers' || c.type === 'both'
-  );
-  const articleCategories = allCategories.filter(
-    (c: any) => c.type === 'articles' || c.type === 'both'
-  );
-  const dealCategories = allCategories.filter(
-    (c: any) => c.type === 'deals' || c.type === 'both'
-  );
+  const offerCategories   = allCategories.filter((c: any) => c.for_offers === 1);
+  const articleCategories = allCategories.filter((c: any) => c.for_articles === 1);
+  const dealCategories    = allCategories.filter((c: any) => c.for_deals === 1);
 
   const preconnectLinks = ['https://images.unsplash.com'];
 

@@ -2,6 +2,30 @@ import { cache } from 'react';
 import pool from './db';
 import { Offer, Deal, Article, FAQ, LegalPage, Comment, Subscription, HomepageCounters, Author, Category } from '@/types';
 
+const CATEGORY_JOIN_COLUMNS = `
+  c.id as category_id,
+  c.name as category_name,
+  c.slug as category_slug,
+  c.for_offers as category_for_offers,
+  c.for_deals as category_for_deals,
+  c.for_articles as category_for_articles
+`;
+
+function buildCategory(row: any) {
+  if (!row.category_id) return null;
+  return {
+    id: row.category_id,
+    name: row.category_name,
+    slug: row.category_slug,
+    for_offers: row.category_for_offers ?? 0,
+    for_deals: row.category_for_deals ?? 0,
+    for_articles: row.category_for_articles ?? 0,
+    is_active: 1,
+    created_at: '',
+    updated_at: '',
+  };
+}
+
 // ============================================================
 // CATEGORY QUERIES
 // ============================================================
@@ -15,9 +39,11 @@ export const getCategories = cache(async (type?: 'offers' | 'articles' | 'deals'
 
     // 2. If a type was requested, filter in memory without hitting the database again
     if (type) {
-      return allCategories.filter(
-        (c: any) => c.type === type || c.type === 'both'
-      );
+      const flag =
+        type === 'offers' ? 'for_offers' :
+        type === 'articles' ? 'for_articles' :
+        'for_deals';
+      return allCategories.filter((c: any) => c[flag] === 1);
     }
 
     return allCategories;
@@ -27,12 +53,27 @@ export const getCategories = cache(async (type?: 'offers' | 'articles' | 'deals'
   }
 });
 
-export const getCategoryBySlug = cache(async (slug: string): Promise<Category | null> => {
+export const getCategoryBySlug = cache(async (
+  slug: string,
+  type?: 'offers' | 'articles' | 'deals'
+): Promise<Category | null> => {
+  if (type) {
+    const flag =
+      type === 'offers' ? 'for_offers' :
+      type === 'articles' ? 'for_articles' :
+      'for_deals';
+    const [rows] = await pool.execute(
+      `SELECT * FROM categories WHERE slug = ? AND is_active = 1 AND ${flag} = 1`,
+      [slug]
+    );
+    return (rows as any[])[0] || null;
+  }
+
   const [rows] = await pool.execute(
     'SELECT * FROM categories WHERE slug = ? AND is_active = 1',
     [slug]
   );
-  return (rows as any[])[0] || null;
+    return (rows as any[])[0] || null;
 });
 
 export const getCategoryById = cache(async (id: number): Promise<Category | null> => {
@@ -55,10 +96,7 @@ export const getFeaturedOffers = cache(async (limit = 6): Promise<Offer[]> => {
         au.name as author_name,
         au.picture as author_picture,
         au.bio as author_bio,
-        c.id as category_id,
-        c.name as category_name,
-        c.slug as category_slug,
-        c.type as category_type
+        ${CATEGORY_JOIN_COLUMNS}
        FROM offers o
        LEFT JOIN authors au ON o.author_id = au.id
        LEFT JOIN categories c ON o.category_id = c.id
@@ -67,22 +105,7 @@ export const getFeaturedOffers = cache(async (limit = 6): Promise<Offer[]> => {
        LIMIT ${Number(limit)}`
     );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-    }) as Offer[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Offer[];
   } catch (error) {
     console.error('❌ MySQL query failed in getFeaturedOffers:', error);
     return [];
@@ -96,10 +119,7 @@ export const getAllOffers = cache(async (): Promise<Offer[]> => {
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM offers o
      LEFT JOIN authors au ON o.author_id = au.id
      LEFT JOIN categories c ON o.category_id = c.id
@@ -107,22 +127,7 @@ export const getAllOffers = cache(async (): Promise<Offer[]> => {
      ORDER BY o.is_boosted DESC, o.created_at DESC`
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Offer[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Offer[];
 });
 
 // ============================================================
@@ -136,10 +141,7 @@ export const getOfferBySlug = cache(async (slug: string): Promise<Offer | null> 
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM offers o
      LEFT JOIN authors au ON o.author_id = au.id
      LEFT JOIN categories c ON o.category_id = c.id
@@ -168,20 +170,7 @@ export const getOfferBySlug = cache(async (slug: string): Promise<Offer | null> 
     [offer.id]
   );
   
-  const category = offer.category_id ? {
-    id: offer.category_id,
-    name: offer.category_name,
-    slug: offer.category_slug,
-    type: offer.category_type,
-    is_active: 1,
-    created_at: '',
-    updated_at: ''
-  } : null;
-  
-  return {
-    ...offer,
-    category
-  } as Offer;
+  return { ...offer, category: buildCategory(offer) } as Offer;
 });
 
 export const getOfferById = cache(async (id: number): Promise<Offer | null> => {
@@ -191,10 +180,7 @@ export const getOfferById = cache(async (id: number): Promise<Offer | null> => {
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM offers o
      LEFT JOIN authors au ON o.author_id = au.id
      LEFT JOIN categories c ON o.category_id = c.id
@@ -207,20 +193,7 @@ export const getOfferById = cache(async (id: number): Promise<Offer | null> => {
   
   const offer = offers[0];
   
-  const category = offer.category_id ? {
-    id: offer.category_id,
-    name: offer.category_name,
-    slug: offer.category_slug,
-    type: offer.category_type,
-    is_active: 1,
-    created_at: '',
-    updated_at: ''
-  } : null;
-  
-  return {
-    ...offer,
-    category
-  } as Offer;
+  return { ...offer, category: buildCategory(offer) } as Offer;
 });
 
 // ============================================================
@@ -289,34 +262,16 @@ export const getOffersByCategorySlug = cache(async (categorySlug: string): Promi
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM offers o
      LEFT JOIN authors au ON o.author_id = au.id
      LEFT JOIN categories c ON o.category_id = c.id
-     WHERE c.slug = ? AND o.is_active = 1
+     WHERE c.slug = ? AND o.is_active = 1 AND c.for_offers = 1
      ORDER BY o.is_boosted DESC, o.created_at DESC`,
     [categorySlug]
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Offer[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Offer[];
 });
 
 // ============================================================
@@ -330,10 +285,7 @@ export const getOffersByType = cache(async (type: string): Promise<Offer[]> => {
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM offers o
      LEFT JOIN authors au ON o.author_id = au.id
      LEFT JOIN categories c ON o.category_id = c.id
@@ -342,22 +294,7 @@ export const getOffersByType = cache(async (type: string): Promise<Offer[]> => {
     [type]
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Offer[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Offer[];
 });
 
 // ============================================================
@@ -371,10 +308,7 @@ export const getLatestArticles = cache(async (limit = 6): Promise<Article[]> => 
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM articles a
      LEFT JOIN authors au ON a.author_id = au.id
      LEFT JOIN categories c ON a.category_id = c.id
@@ -384,22 +318,7 @@ export const getLatestArticles = cache(async (limit = 6): Promise<Article[]> => 
     
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Article[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Article[];
 });
 
 export const getAllArticles = cache(async (): Promise<Article[]> => {
@@ -409,10 +328,7 @@ export const getAllArticles = cache(async (): Promise<Article[]> => {
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM articles a
      LEFT JOIN authors au ON a.author_id = au.id
      LEFT JOIN categories c ON a.category_id = c.id
@@ -420,22 +336,7 @@ export const getAllArticles = cache(async (): Promise<Article[]> => {
      ORDER BY a.is_boosted DESC, a.created_at DESC`
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Article[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Article[];
 });
 
 // ============================================================
@@ -449,10 +350,7 @@ export const getArticleBySlug = cache(async (slug: string): Promise<Article | nu
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM articles a
      LEFT JOIN authors au ON a.author_id = au.id
      LEFT JOIN categories c ON a.category_id = c.id
@@ -481,20 +379,7 @@ export const getArticleBySlug = cache(async (slug: string): Promise<Article | nu
     [article.id]
   );
   
-  const category = article.category_id ? {
-    id: article.category_id,
-    name: article.category_name,
-    slug: article.category_slug,
-    type: article.category_type,
-    is_active: 1,
-    created_at: '',
-    updated_at: ''
-  } : null;
-  
-  return {
-    ...article,
-    category
-  } as Article;
+  return { ...article, category: buildCategory(article) } as Article;
 });
 
 // ============================================================
@@ -508,34 +393,16 @@ export const getArticlesByCategorySlug = cache(async (categorySlug: string): Pro
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM articles a
      LEFT JOIN authors au ON a.author_id = au.id
      LEFT JOIN categories c ON a.category_id = c.id
-     WHERE c.slug = ? AND a.is_active = 1
+     WHERE c.slug = ? AND a.is_active = 1 AND c.for_articles = 1
      ORDER BY a.is_boosted DESC, a.created_at DESC`,
     [categorySlug]
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Article[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Article[];
 });
 
 // ============================================================
@@ -549,10 +416,7 @@ export const getArticlesByType = cache(async (type: string): Promise<Article[]> 
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM articles a
      LEFT JOIN authors au ON a.author_id = au.id
      LEFT JOIN categories c ON a.category_id = c.id
@@ -561,22 +425,7 @@ export const getArticlesByType = cache(async (type: string): Promise<Article[]> 
     [type]
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Article[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Article[];
 });
 
 // ============================================================
@@ -905,10 +754,7 @@ export const getFeaturedDeals = cache(async (limit = 6): Promise<Deal[]> => {
         au.name as author_name,
         au.picture as author_picture,
         au.bio as author_bio,
-        c.id as category_id,
-        c.name as category_name,
-        c.slug as category_slug,
-        c.type as category_type
+        ${CATEGORY_JOIN_COLUMNS}
        FROM deals d
        LEFT JOIN authors au ON d.author_id = au.id
        LEFT JOIN categories c ON d.category_id = c.id
@@ -917,22 +763,7 @@ export const getFeaturedDeals = cache(async (limit = 6): Promise<Deal[]> => {
        LIMIT ${Number(limit)}`
     );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-    }) as Deal[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Deal[];
   } catch (error) {
     console.error('❌ MySQL query failed in getFeaturedDeals:', error);
     return [];
@@ -946,10 +777,7 @@ export const getAllDeals = cache(async (): Promise<Deal[]> => {
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM deals d
      LEFT JOIN authors au ON d.author_id = au.id
      LEFT JOIN categories c ON d.category_id = c.id
@@ -957,22 +785,7 @@ export const getAllDeals = cache(async (): Promise<Deal[]> => {
      ORDER BY d.is_boosted DESC, d.created_at DESC`
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Deal[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Deal[];
 });
 
 // ============================================================
@@ -986,10 +799,7 @@ export const getDealBySlug = cache(async (slug: string): Promise<Deal | null> =>
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM deals d
      LEFT JOIN authors au ON d.author_id = au.id
      LEFT JOIN categories c ON d.category_id = c.id
@@ -1016,20 +826,7 @@ export const getDealBySlug = cache(async (slug: string): Promise<Deal | null> =>
     [deal.id]
   );
   
-  const category = deal.category_id ? {
-    id: deal.category_id,
-    name: deal.category_name,
-    slug: deal.category_slug,
-    type: deal.category_type,
-    is_active: 1,
-    created_at: '',
-    updated_at: ''
-  } : null;
-  
-  return {
-    ...deal,
-    category
-  } as Deal;
+  return { ...deal, category: buildCategory(deal) } as Deal;
 });
 
 export const getDealById = cache(async (id: number): Promise<Deal | null> => {
@@ -1039,10 +836,7 @@ export const getDealById = cache(async (id: number): Promise<Deal | null> => {
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM deals d
      LEFT JOIN authors au ON d.author_id = au.id
      LEFT JOIN categories c ON d.category_id = c.id
@@ -1055,20 +849,7 @@ export const getDealById = cache(async (id: number): Promise<Deal | null> => {
   
   const deal = deals[0];
   
-  const category = deal.category_id ? {
-    id: deal.category_id,
-    name: deal.category_name,
-    slug: deal.category_slug,
-    type: deal.category_type,
-    is_active: 1,
-    created_at: '',
-    updated_at: ''
-  } : null;
-  
-  return {
-    ...deal,
-    category
-  } as Deal;
+  return { ...deal, category: buildCategory(deal) } as Deal;
 });
 
 // ============================================================
@@ -1134,34 +915,16 @@ export const getDealsByCategorySlug = cache(async (categorySlug: string): Promis
       au.name as author_name,
       au.picture as author_picture,
       au.bio as author_bio,
-      c.id as category_id,
-      c.name as category_name,
-      c.slug as category_slug,
-      c.type as category_type
+      ${CATEGORY_JOIN_COLUMNS}
      FROM deals d
      LEFT JOIN authors au ON d.author_id = au.id
      LEFT JOIN categories c ON d.category_id = c.id
-     WHERE c.slug = ? AND d.is_active = 1
+     WHERE c.slug = ? AND d.is_active = 1 AND c.for_deals = 1
      ORDER BY d.is_boosted DESC, d.created_at DESC`,
     [categorySlug]
   );
   
-  return (rows as any[]).map(row => {
-    const category = row.category_id ? {
-      id: row.category_id,
-      name: row.category_name,
-      slug: row.category_slug,
-      type: row.category_type,
-      is_active: 1,
-      created_at: '',
-      updated_at: ''
-    } : null;
-    
-    return {
-      ...row,
-      category
-    };
-  }) as Deal[];
+  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Deal[];
 });
 
 // ============================================================

@@ -65,8 +65,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
   // Filter by category
   if (category !== 'all') {
     filteredArticles = filteredArticles.filter(article => {
-      const articleCategory = article?.category?.name || article?.category_name || article?.category || '';
-      return articleCategory === category;
+      return article?.category?.slug === category;
     });
   }
 

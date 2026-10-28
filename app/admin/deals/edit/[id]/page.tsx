@@ -464,7 +464,7 @@ export default function EditDealPage() {
         if (catRes.ok) {
           const catData = await catRes.json();
           const filtered = (catData.categories || []).filter(
-            (cat: Category) => cat.type === 'deals' || cat.type === 'both'
+            (cat: any) => cat.for_deals === 1
           );
           setCategories(filtered);
         }
@@ -812,7 +812,7 @@ export default function EditDealPage() {
                   >
                     <option value="">Select a category...</option>
                     {filterLoading ? <option value="" disabled>Loading categories...</option> : categories.length === 0 ? <option value="" disabled>No categories available</option> : categories.map((cat) => (
-                      <option key={cat.id} value={String(cat.id)}>{cat.name} {cat.type === 'both' ? '(Both)' : ''}</option>
+                      <option key={cat.id} value={String(cat.id)}>{cat.name}</option>
                     ))}
                   </select>
                 </div>

@@ -2,20 +2,20 @@
 
 import { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
-import { Article } from '@/types';
+import { Article, Category } from '@/types';
 import BlogCard from '@/components/ui/BlogCard';
 import Pagination from '@/components/ui/Pagination';
 import AdPlacement from '@/components/ui/AdPlacement';
 import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 9;
-const categories = ['all', 'get-paid-to', 'no-skills', 'side-hustles', 'scam-or-legit'];
 
 interface BlogListProps {
   initialArticles: Article[];
+  categories?: Category[];
 }
 
-export default function BlogList({ initialArticles }: BlogListProps) {
+export default function BlogList({ initialArticles, categories = [] }: BlogListProps) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,23 +79,37 @@ export default function BlogList({ initialArticles }: BlogListProps) {
             />
           </div>
 
-          {/* Category Chips */}
+          {/* Category Chips — from DB */}
           <div className="flex flex-wrap gap-2">
-            {categories.map((c) => (
+            <button
+              onClick={() => {
+                setCategory('all');
+                setCurrentPage(1);
+              }}
+              className={cn(
+                'px-4 py-2 text-xs sm:text-sm font-semibold rounded-full transition-colors focus:outline-none min-h-[38px] flex items-center',
+                category === 'all'
+                  ? 'bg-navy text-white shadow-sm'
+                  : 'bg-light-gray text-gray-text hover:bg-border-gray/50'
+              )}
+            >
+              All
+            </button>
+            {categories.map((cat) => (
               <button
-                key={c}
+                key={cat.id}
                 onClick={() => {
-                  setCategory(c);
+                  setCategory(cat.slug);
                   setCurrentPage(1);
                 }}
                 className={cn(
                   'px-4 py-2 text-xs sm:text-sm font-semibold rounded-full transition-colors focus:outline-none min-h-[38px] flex items-center',
-                  category === c
+                  category === cat.slug
                     ? 'bg-navy text-white shadow-sm'
                     : 'bg-light-gray text-gray-text hover:bg-border-gray/50'
                 )}
               >
-                {c === 'all' ? 'All' : c.replace(/-/g, ' ')}
+                {cat.name}
               </button>
             ))}
           </div>

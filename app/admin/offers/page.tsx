@@ -365,7 +365,7 @@ export default function OffersPage() {
         if (catRes.ok) {
           const catData = await catRes.json();
           const filtered = (catData.categories || []).filter(
-            (cat: Category) => cat.type === 'offers' || cat.type === 'both'
+            (cat: any) => cat.for_offers === 1
           );
           setCategories(filtered);
         }
@@ -753,7 +753,7 @@ export default function OffersPage() {
             <option value="all">All Categories</option>
             {categories.map((cat) => (
               <option key={cat.id} value={String(cat.id)}>
-                {cat.name} {cat.type === 'both' ? '(Both)' : ''}
+                {cat.name}
               </option>
             ))}
           </select>

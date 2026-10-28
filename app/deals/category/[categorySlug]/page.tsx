@@ -21,7 +21,7 @@ interface CategoryPageProps {
 }
 
 export async function generateStaticParams() {
-  const categories = await getCategories('offers');
+  const categories = await getCategories('deals');
   return categories.map((cat) => ({
     categorySlug: cat.slug,
   }));
@@ -35,7 +35,7 @@ export default async function DealsCategoryPage({ params, searchParams }: Catego
   const page = parseInt(sp.page || '1');
   const limit = 9;
 
-  const category = await getCategoryBySlug(categorySlug);
+  const category = await getCategoryBySlug(categorySlug, 'deals');
   if (!category) notFound();
 
   let deals = await getDealsByCategorySlug(categorySlug);

@@ -10,9 +10,6 @@ interface LayoutProps {
 const SITE_URL = 'https://rafdeals.com';
 const SITE_NAME = 'RafDeals';
 
-// ============================================================
-// GENERATE STATIC PARAMS
-// ============================================================
 export async function generateStaticParams() {
   const categories = await getCategories('offers');
   return categories.map((cat) => ({
@@ -20,12 +17,9 @@ export async function generateStaticParams() {
   }));
 }
 
-// ============================================================
-// GENERATE METADATA - WITH CATEGORY NAME FROM DATABASE
-// ============================================================
 export async function generateMetadata({ params }: LayoutProps): Promise<Metadata> {
   const { categorySlug } = await params;
-  const category = await getCategoryBySlug(categorySlug);
+  const category = await getCategoryBySlug(categorySlug, 'offers');
 
   if (!category) {
     return {
@@ -35,13 +29,13 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
   }
 
   const categoryName = category.name;
-  const title = `${categoryName} Offers & Deals`;
-  const description = `Browse our curated collection of verified ${categoryName.toLowerCase()} online offers and exclusive deals. Manually audited promotions for maximum security.`;
+  const title = `${categoryName} Offers & Opportunities`;
+  const description = `Browse our curated collection of verified ${categoryName.toLowerCase()} offers and money-making opportunities.`;
 
   return {
     title,
     description,
-    keywords: `${categoryName.toLowerCase()}, online offers, exclusive deals, verified offers, signup bonuses, cashback offers`,
+    keywords: `${categoryName.toLowerCase()}, online offers, money making, verified offers`,
     openGraph: {
       title,
       description,
@@ -53,7 +47,7 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
           url: `${SITE_URL}/img/og-default.jpg`,
           width: 1254,
           height: 1254,
-          alt: `${categoryName} — ${SITE_NAME}`,
+          alt: `${categoryName} Offers — ${SITE_NAME}`,
         },
       ],
     },
@@ -71,19 +65,13 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
   };
 }
 
-// ============================================================
-// LAYOUT COMPONENT
-// ============================================================
 export default async function OffersCategoryLayout({ children, params }: LayoutProps) {
   const { categorySlug } = await params;
-  const category = await getCategoryBySlug(categorySlug);
+  const category = await getCategoryBySlug(categorySlug, 'offers');
 
   if (!category) notFound();
 
   return <>{children}</>;
 }
 
-// ============================================================
-// REVALIDATE
-// ============================================================
 export const revalidate = 3600;
