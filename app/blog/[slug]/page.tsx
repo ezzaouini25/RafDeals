@@ -20,7 +20,7 @@ import CommentsSection from './CommentsSection';
 import GoogleAdSense from '@/components/ui/GoogleAdSense';
 import { formatDate } from '@/lib/utils';
 import AdPlacement from '@/components/ui/AdPlacement';
-import parse from 'html-react-parser';
+import parse, { domToReact } from 'html-react-parser';
 import AuthorSection from './AuthorSection';
 import { formatNumberAbbreviated } from '@/lib/utils';
 
@@ -49,17 +49,13 @@ function getRelatedArticles(current: any, allArticles: any[]) {
         .filter(w => w.length > 3 && !['with', 'this', 'from', 'your', 'about', 'guide', 'online', 'earn', 'money', 'free', 'best', 'complete'].includes(w))
     );
   };
-
   const currentWords = getWords(current);
-
   return allArticles
     .filter(item => item.id !== current.id)
     .map(item => {
       const itemWords = getWords(item);
       let overlapCount = 0;
-      currentWords.forEach(word => {
-        if (itemWords.has(word)) overlapCount++;
-      });
+      currentWords.forEach(word => { if (itemWords.has(word)) overlapCount++; });
       if (item.category === current.category) overlapCount += 3;
       return { item, score: overlapCount };
     })
@@ -78,16 +74,12 @@ function getRelatedOffers(current: any, allOffers: any[]) {
         .filter(w => w.length > 3 && !['with', 'this', 'from', 'your', 'about', 'guide', 'online', 'earn', 'money', 'free', 'best', 'complete'].includes(w))
     );
   };
-
   const currentWords = getWords(current);
-
   return allOffers
     .map(item => {
       const itemWords = getWords(item);
       let overlapCount = 0;
-      currentWords.forEach(word => {
-        if (itemWords.has(word)) overlapCount++;
-      });
+      currentWords.forEach(word => { if (itemWords.has(word)) overlapCount++; });
       return { item, score: overlapCount };
     })
     .sort((a, b) => b.score - a.score)
@@ -105,16 +97,12 @@ function getRelatedDeals(current: any, allDeals: any[]) {
         .filter(w => w.length > 3 && !['with', 'this', 'from', 'your', 'about', 'guide', 'online', 'earn', 'money', 'free', 'best', 'complete'].includes(w))
     );
   };
-
   const currentWords = getWords(current);
-
   return allDeals
     .map(item => {
       const itemWords = getWords(item);
       let overlapCount = 0;
-      currentWords.forEach(word => {
-        if (itemWords.has(word)) overlapCount++;
-      });
+      currentWords.forEach(word => { if (itemWords.has(word)) overlapCount++; });
       return { item, score: overlapCount };
     })
     .sort((a, b) => b.score - a.score)
@@ -128,26 +116,19 @@ function getRelatedDeals(current: any, allDeals: any[]) {
 
 const insertAdsIntoContent = (html: string) => {
   if (!html) return '';
-
   const headingRegex = /(<h2[^>]*>.*?<\/h2>|<h3[^>]*>.*?<\/h3>)/gi;
   const headings = html.match(headingRegex) || [];
 
   if (headings.length === 0) {
     const paragraphs = html.split('</p>');
     const totalP = paragraphs.length;
-
-    if (totalP < 3) {
-      return html + '<div class="my-8 ad-placeholder-1"></div>';
-    }
-
+    if (totalP < 3) return html + '<div class="my-8 ad-placeholder-1"></div>';
     const partSize = Math.floor(totalP / 3);
     let result = '';
     let adCount = 0;
-
     for (let i = 0; i < paragraphs.length; i++) {
       result += paragraphs[i];
       if (i < paragraphs.length - 1) result += '</p>';
-
       if (i === partSize && adCount === 0) {
         result += '<div class="my-8 ad-placeholder-1"></div>';
         adCount++;
@@ -162,30 +143,19 @@ const insertAdsIntoContent = (html: string) => {
   const totalHeadings = headings.length;
   let ad1Position = 0;
   let ad2Position = 0;
-
-  if (totalHeadings >= 3) {
-    ad1Position = 1;
-    ad2Position = 3;
-  } else if (totalHeadings === 2) {
-    ad1Position = 1;
-    ad2Position = 2;
-  } else {
-    ad1Position = 1;
-    ad2Position = 1;
-  }
+  if (totalHeadings >= 3) { ad1Position = 1; ad2Position = 3; }
+  else if (totalHeadings === 2) { ad1Position = 1; ad2Position = 2; }
+  else { ad1Position = 1; ad2Position = 1; }
 
   let result = '';
   let headingIndex = 0;
   let adCount = 0;
   const allParts = html.split(headingRegex);
-
   for (let i = 0; i < allParts.length; i++) {
     const part = allParts[i];
-
     if (part && (part.startsWith('<h2') || part.startsWith('<h3'))) {
       headingIndex++;
       result += part;
-
       if (headingIndex === ad1Position && adCount === 0) {
         result += '<div class="my-8 ad-placeholder-1"></div>';
         adCount++;
@@ -197,16 +167,86 @@ const insertAdsIntoContent = (html: string) => {
       result += part;
     }
   }
-
-  if (adCount === 1) {
-    result += '<div class="my-8 ad-placeholder-2"></div>';
-  }
-
-  if (adCount === 0) {
-    result += '<div class="my-8 ad-placeholder-1"></div><div class="my-8 ad-placeholder-2"></div>';
-  }
-
+  if (adCount === 1) result += '<div class="my-8 ad-placeholder-2"></div>';
+  if (adCount === 0) result += '<div class="my-8 ad-placeholder-1"></div><div class="my-8 ad-placeholder-2"></div>';
   return result;
+};
+
+// ============================================================
+// SHARED PARSE REPLACE HANDLER (ads + tables)
+// ============================================================
+
+const makeReplaceHandler = (ads: boolean) => (node: any) => {
+  if (ads) {
+    if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-1')) {
+      return <div className="my-8"><GoogleAdSense placement="in_content_middle" /></div>;
+    }
+    if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-2')) {
+      return <div className="my-8"><GoogleAdSense placement="in_content_bottom" /></div>;
+    }
+  }
+
+  if (node.type === 'tag' && node.name === 'figure' && node.attribs?.class?.includes('table')) {
+    return (
+      <div
+        className="table-scroll-container my-6"
+        style={{
+          width: '100%', maxWidth: '100%',
+          overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+          borderRadius: '8px', border: '1px solid #E2E8F0',
+          background: '#ffffff',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+        }}
+      >
+        {domToReact((node as any).children, {
+          replace: (childNode: any) => {
+            if (childNode.type === 'tag' && childNode.name === 'table') {
+              return (
+                <table className="article-table" style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0, margin: 0, background: '#ffffff' }}>
+                  {domToReact((childNode as any).children, {
+                    replace: (subChild: any) => {
+                      if (subChild.type === 'tag' && (subChild.name === 'td' || subChild.name === 'th' || subChild.name === 'tr')) {
+                        if (subChild.attribs) {
+                          delete subChild.attribs.width;
+                          delete subChild.attribs.style;
+                          delete subChild.attribs.height;
+                        }
+                      }
+                      return subChild;
+                    },
+                  })}
+                </table>
+              );
+            }
+            return childNode;
+          },
+        })}
+      </div>
+    );
+  }
+
+  if (node.type === 'tag' && node.name === 'table') {
+    return (
+      <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', margin: '2rem 0', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#ffffff' }}>
+        <table className="article-table" style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0, margin: 0, background: '#ffffff' }}>
+          {domToReact((node as any).children, {
+            replace: (sub: any) => {
+              if (sub.type === 'tag' && (sub.name === 'td' || sub.name === 'th' || sub.name === 'tr')) {
+                if (sub.attribs) {
+                  delete sub.attribs.width;
+                  delete sub.attribs.style;
+                  delete sub.attribs.height;
+                }
+              }
+              return sub;
+            },
+          })}
+        </table>
+      </div>
+    );
+  }
+
+  return node;
 };
 
 // ============================================================
@@ -215,33 +255,13 @@ const insertAdsIntoContent = (html: string) => {
 
 const renderContentWithOffersAndAds = async (content: string) => {
   if (!content) return null;
-
   const contentWithAds = insertAdsIntoContent(content);
-
   const parts = contentWithAds.split(/\[(offer|deal):([^\]]+)\]/);
 
   if (parts.length === 1) {
     return (
       <div className="article-body-custom">
-        {parse(contentWithAds, {
-          replace: (node: any) => {
-            if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-1')) {
-              return (
-                <div className="my-8">
-                  <GoogleAdSense placement="in_content_middle" />
-                </div>
-              );
-            }
-            if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-2')) {
-              return (
-                <div className="my-8">
-                  <GoogleAdSense placement="in_content_bottom" />
-                </div>
-              );
-            }
-            return node;
-          }
-        })}
+        {parse(contentWithAds, { replace: makeReplaceHandler(true) })}
       </div>
     );
   }
@@ -254,23 +274,17 @@ const renderContentWithOffersAndAds = async (content: string) => {
 
     if (textPart) {
       elements.push(
-        <div
-          key={`text-${i}`}
-          className="article-body-custom"
-          dangerouslySetInnerHTML={{ __html: textPart }}
-        />
+        <div key={`text-${i}`} className="article-body-custom">
+          {parse(textPart, { replace: makeReplaceHandler(true) })}
+        </div>
       );
     }
-
     if (!typePart || !slugPart) continue;
 
     const isNumeric = /^\d+$/.test(slugPart);
 
     if (typePart === 'offer') {
-      const offer = isNumeric
-        ? await getOfferById(parseInt(slugPart))
-        : await getOfferBySlug(slugPart);
-
+      const offer = isNumeric ? await getOfferById(parseInt(slugPart)) : await getOfferBySlug(slugPart);
       if (offer) {
         elements.push(
           <div key={`offer-${i}`} className="my-8 max-w-md mx-auto">
@@ -285,10 +299,7 @@ const renderContentWithOffersAndAds = async (content: string) => {
         );
       }
     } else if (typePart === 'deal') {
-      const deal = isNumeric
-        ? await getDealById(parseInt(slugPart))
-        : await getDealBySlug(slugPart);
-
+      const deal = isNumeric ? await getDealById(parseInt(slugPart)) : await getDealBySlug(slugPart);
       if (deal) {
         elements.push(
           <div key={`deal-${i}`} className="my-10 max-w-sm mx-auto">
@@ -304,7 +315,6 @@ const renderContentWithOffersAndAds = async (content: string) => {
       }
     }
   }
-
   return elements;
 };
 
@@ -318,7 +328,6 @@ export default async function BlogDetailPage({ params }: PageProps) {
   if (!article) notFound();
 
   const initialComments = await getCommentsByArticleSlug(slug);
-
   const allArticles = await getAllArticles();
   const allOffers = await getAllOffers();
   const allDeals = await getAllDeals();
@@ -433,18 +442,50 @@ export default async function BlogDetailPage({ params }: PageProps) {
 
       {/* Content grid */}
       <div className="bg-light-gray/40 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-            {/* Main content — forced first on mobile */}
-            <div className="lg:col-span-8 min-w-0 order-1 lg:order-none">
-              <div className="bg-white border border-border-gray/50 p-6 sm:p-10 md:p-12 overflow-x-auto">
+            {/* MAIN COLUMN */}
+            <div className="lg:col-span-8 min-w-0">
+              <div className="bg-white border border-border-gray/50 p-6 sm:p-10 md:p-12">
                 <div className="mb-6">
                   <AdPlacement placement="article-content" />
                 </div>
 
+                {/* Article content */}
                 <div className="mt-0">
                   {contentElements}
+                </div>
+
+                {/* MOBILE ONLY — Article Details BELOW article body, ABOVE comments */}
+                <div className="lg:hidden mt-8">
+                  <div className="bg-light-gray/60 border border-border-gray p-6">
+                    <h3 className="font-bold text-navy text-sm uppercase tracking-wider mb-4 pb-3 border-b border-border-gray/50">
+                      Article Details
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-text">Category</span>
+                        <span className="font-semibold text-navy">{categoryDisplay || 'General'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-text">Author</span>
+                        <span className="font-semibold text-navy">{authorName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-text">Published</span>
+                        <span className="font-semibold text-navy">{formatDate(article.created_at)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-text">Read Time</span>
+                        <span className="font-semibold text-navy">{article.read_time || 5} min</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-text">Views</span>
+                        <span className="font-semibold text-navy">{article.views || 0}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-8">
@@ -459,12 +500,56 @@ export default async function BlogDetailPage({ params }: PageProps) {
                   createdAt={article.created_at}
                 />
 
+                {/* Comments */}
                 <CommentsSection articleSlug={slug} initialComments={initialComments} />
+
+                {/* MOBILE ONLY — Related Offers + Ads + Related Deals UNDER comments */}
+                <div className="lg:hidden mt-8 space-y-6">
+
+                  {relatedOffers.length > 0 && (
+                    <div className="bg-light-gray/60 border border-border-gray p-6">
+                      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-gray/50">
+                        <ThumbsUp size={18} className="text-navy" />
+                        <h3 className="font-bold text-navy text-sm uppercase tracking-wider">Related Offers</h3>
+                      </div>
+                      <div className="space-y-4">
+                        {relatedOffers[0] && <OfferCard key={relatedOffers[0].id} offer={relatedOffers[0]} variant="compact" />}
+                        {relatedOffers[1] && <OfferCard key={relatedOffers[1].id} offer={relatedOffers[1]} variant="compact" />}
+                        {relatedOffers[2] && <OfferCard key={relatedOffers[2].id} offer={relatedOffers[2]} variant="compact" />}
+                      </div>
+                    </div>
+                  )}
+
+                  <AdPlacement placement="sidebar" />
+
+                  {relatedDeals.length > 0 && (
+                    <div className="bg-light-gray/60 border border-border-gray p-6">
+                      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-gray/50">
+                        <Flame size={18} className="text-navy" />
+                        <h3 className="font-bold text-navy text-sm uppercase tracking-wider">Related Deals</h3>
+                      </div>
+                      <div className="space-y-4">
+                        {relatedDeals[0] && (
+                          <div>
+                            <FeaturedDealCard deal={relatedDeals[0]} />
+                          </div>
+                        )}
+                        {relatedDeals[1] && (
+                          <div>
+                            <FeaturedDealCard deal={relatedDeals[1]} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <GoogleAdSense placement="sidebar" />
+                </div>
               </div>
             </div>
 
-            {/* Sidebar — forced after content on mobile, right side on desktop */}
-            <div className="lg:col-span-4 min-w-0 self-start order-2 lg:order-none">
+            {/* DESKTOP ONLY — Sidebar */}
+            <div className="lg:col-span-4 min-w-0 hidden lg:block">
               <div className="sticky top-24 space-y-6">
 
                 {/* Article Details */}
@@ -496,7 +581,6 @@ export default async function BlogDetailPage({ params }: PageProps) {
                   </div>
                 </div>
 
-                {/* Related Offers */}
                 {relatedOffers.length > 0 && (
                   <div className="bg-white border border-border-gray p-6 shadow-card">
                     <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-gray/50">
@@ -513,7 +597,6 @@ export default async function BlogDetailPage({ params }: PageProps) {
 
                 <AdPlacement placement="sidebar" />
 
-                {/* Related Deals */}
                 {relatedDeals.length > 0 && (
                   <div className="bg-white border border-border-gray p-6 shadow-card">
                     <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-gray/50">
@@ -521,22 +604,13 @@ export default async function BlogDetailPage({ params }: PageProps) {
                       <h3 className="font-bold text-navy text-sm uppercase tracking-wider">Related Deals</h3>
                     </div>
                     <div className="space-y-4">
-                      {relatedDeals[0] && (
-                        <div>
-                          <FeaturedDealCard deal={relatedDeals[0]} />
-                        </div>
-                      )}
-                      {relatedDeals[1] && (
-                        <div>
-                          <FeaturedDealCard deal={relatedDeals[1]} />
-                        </div>
-                      )}
+                      {relatedDeals[0] && <div><FeaturedDealCard deal={relatedDeals[0]} /></div>}
+                      {relatedDeals[1] && <div><FeaturedDealCard deal={relatedDeals[1]} /></div>}
                     </div>
                   </div>
                 )}
 
                 <GoogleAdSense placement="sidebar" />
-
               </div>
             </div>
           </div>

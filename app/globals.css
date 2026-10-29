@@ -67,7 +67,7 @@
    ============================================================ */
 .article-body-custom {
   max-width: 100%;
-  overflow-x: hidden;
+  /* overflow-x: hidden; */
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
@@ -305,114 +305,118 @@
 .article-body-custom ol[type="i"] { list-style-type: lower-roman; }
 .article-body-custom ol[type="I"] { list-style-type: upper-roman; }
 
+
 /* ============================================================
-   TABLES — alternating rows, dark header, soft shadow
+   ARTICLE TABLES — 100% Desktop Width & Mobile Touch Slider
    ============================================================ */
-.article-body-custom table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin: 2.5rem 0;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.15), 0 4px 8px -4px rgba(15, 23, 42, 0.08);
-  table-layout: auto;
-  font-size: 14px;
+
+.article-body-custom {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
-/* Dark header */
-.article-body-custom table thead {
-  background-color: #1F2937;
-  color: #ffffff;
+.table-scroll-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  margin: 2rem 0 !important;
+  border-radius: 8px !important;
+  border: 1px solid #E2E8F0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
 }
 
-.article-body-custom table th {
-  padding: 14px 20px;
-  text-align: left;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #ffffff;
-  border: none;
-  white-space: nowrap;
+.table-scroll-container .article-table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin: 0 !important;
+  background: #ffffff !important;
+  font-size: 14px !important;
 }
 
-/* Body */
-.article-body-custom table tbody tr {
-  background-color: #ffffff;
-  transition: background-color 0.15s ease;
-}
-.article-body-custom table tbody tr:nth-child(even) {
-  background-color: #F8FAFC;
-}
-.article-body-custom table tbody tr:hover {
-  background-color: #EFF6FF;
-}
-.article-body-custom table tbody tr:last-child td {
-  border-bottom: none;
+.table-scroll-container .article-table thead {
+  background-color: #0A192F !important;
+  color: #ffffff !important;
 }
 
-.article-body-custom table td {
-  padding: 14px 20px;
-  font-size: 14px;
-  color: #475569;
-  font-weight: 500;
-  border: none;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
-  word-break: break-word;
-  vertical-align: middle;
+.table-scroll-container .article-table th {
+  padding: 14px 20px !important;
+  text-align: left !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: #ffffff !important;
+  border: none !important;
 }
 
-/* Mobile — scrollable + wrap-safe */
-@media (max-width: 640px) {
-  .article-body-custom table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    font-size: 13px;
-    border-radius: 6px;
+.table-scroll-container .article-table tbody tr:nth-child(even) {
+  background-color: #F8FAFC !important;
+}
+
+.table-scroll-container .article-table tbody tr:hover {
+  background-color: #EFF6FF !important;
+}
+
+.table-scroll-container .article-table td {
+  padding: 14px 20px !important;
+  font-size: 14px !important;
+  color: #475569 !important;
+  font-weight: 500 !important;
+  border: none !important;
+  border-bottom: 1px solid #F1F5F9 !important;
+  vertical-align: middle !important;
+}
+
+/* Mobile: Force min-width to trigger the touch slider */
+@media (max-width: 767px) {
+  .table-scroll-container .article-table {
+    min-width: 650px !important;
   }
-  .article-body-custom table thead,
-  .article-body-custom table tbody,
-  .article-body-custom table tr {
-    display: table;
-    width: 100%;
-    min-width: 500px;
-    table-layout: auto;
-  }
-  .article-body-custom table th,
-  .article-body-custom table td {
-    padding: 12px 14px;
-    font-size: 12px;
-    white-space: normal;
-    min-width: 80px;
-  }
-  .article-body-custom table::-webkit-scrollbar { height: 6px; }
-  .article-body-custom table::-webkit-scrollbar-thumb {
-    background: rgba(15, 23, 42, 0.2);
-    border-radius: 3px;
-  }
-  .article-body-custom table::-webkit-scrollbar-track {
-    background: rgba(15, 23, 42, 0.05);
+  .table-scroll-container .article-table th,
+  .table-scroll-container .article-table td {
+    white-space: nowrap !important;
   }
 }
 
-/* Tablet — table fits but header text can shrink */
-@media (min-width: 641px) and (max-width: 1023px) {
-  .article-body-custom table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+/* Desktop: Stretch to 100% width and wrap text naturally */
+@media (min-width: 768px) {
+  .table-scroll-container .article-table {
+    min-width: 100% !important;
+    table-layout: auto !important;
   }
-  .article-body-custom table thead,
-  .article-body-custom table tbody,
-  .article-body-custom table tr {
-    display: table;
-    width: 100%;
-    min-width: 600px;
-    table-layout: auto;
+  .table-scroll-container .article-table th,
+  .table-scroll-container .article-table td {
+    white-space: normal !important;
   }
+}
+
+/* Professional Custom Slider Bar */
+.table-scroll-container::-webkit-scrollbar {
+  height: 8px !important;
+  display: block !important;
+}
+
+.table-scroll-container::-webkit-scrollbar-track {
+  background: #F1F5F9 !important;
+  border-radius: 0 0 8px 8px !important;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: #0A192F !important;
+  border-radius: 4px !important;
+  border: 2px solid #F1F5F9 !important;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #FFD23F !important;
+}
+figure.table {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 1.5rem 0 !important;
 }
 
 /* ============================================================

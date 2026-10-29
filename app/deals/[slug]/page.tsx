@@ -11,7 +11,7 @@ import Reviews from '@/components/ui/Reviews';
 import { formatDate, formatNumberAbbreviated } from '@/lib/utils';
 import AdPlacement from '@/components/ui/AdPlacement';
 import AdSense from '@/components/ui/GoogleAdSense';
-import parse from 'html-react-parser';
+import parse, { domToReact } from 'html-react-parser';
 import DealClickTracker from '@/components/ui/DealClickTracker';
 import AuthorSection from './AuthorSection';
 import Flag from '@/components/ui/Flag';
@@ -255,18 +255,127 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
       {/* MAIN CONTENT */}
       <section className="py-12 sm:py-16 bg-light-gray/40">
         <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* MOBILE ONLY — Deal Overview above article */}
+          <div className="lg:hidden mb-8">
+            <div className="bg-white border border-border-gray shadow-sm overflow-hidden">
+              <div className="bg-navy px-6 py-4 border-b-4 border-yellow">
+                <h3 className="text-sm font-black uppercase tracking-widest text-white">
+                  Deal Overview
+                </h3>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {categoryName && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-text">Category</span>
+                    <Link
+                      href={`/deals/category/${categorySlug}`}
+                      className="text-sm font-bold text-navy hover:text-yellow transition-colors"
+                    >
+                      {categoryName}
+                    </Link>
+                  </div>
+                )}
+
+                <div className="border-t border-border-gray/40 pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-navy">
+                      Available In
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-navy/60 bg-light-gray border border-border-gray/50 px-2 py-0.5">
+                      {countryCodes.length > 0
+                        ? `${countryCodes.length} ${countryCodes.length === 1 ? 'Country' : 'Countries'}`
+                        : 'Global'}
+                    </span>
+                  </div>
+
+                  {countryCodes.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {countryCodes.map((code) => {
+                        const country = ALL_COUNTRIES.find((c) => c.iso2 === code);
+                        return (
+                          <div
+                            key={code}
+                            className="group flex items-center gap-2 bg-light-gray/80 hover:bg-white border border-border-gray/70 hover:border-navy/40 px-2 py-1.5 shadow-sm transition-all cursor-default select-none"
+                            title={country?.name || code}
+                          >
+                            <div className="relative w-6 h-6 rounded-full overflow-hidden shrink-0 border border-black/15 shadow-inner flex items-center justify-center bg-slate-200">
+                              <span className="absolute inset-0 flex items-center justify-center [&_svg]:w-full [&_svg]:h-full [&_svg]:max-w-none [&_svg]:max-h-none [&_svg]:scale-[1.85] [&_img]:w-full [&_img]:h-full [&_img]:max-w-none [&_img]:max-h-none [&_img]:scale-[1.85] [&_img]:object-cover">
+                                <Flag country={code as any} />
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-bold text-navy tracking-tight">
+                              {country?.name === 'United States' ? 'USA' : country?.name || code}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-light-gray border border-border-gray text-xs font-bold text-navy">
+                      <Globe size={14} className="text-navy" />
+                      Global Availability
+                    </div>
+                  )}
+                </div>
+
+                {deal.payout_amount && (
+                  <div className="flex items-center justify-between gap-3 bg-navy px-3.5 py-2.5 border-l-4 border-yellow">
+                    <span className="text-[10px] font-black uppercase tracking-[0.12em] text-yellow leading-tight">
+                      {payLabel}
+                    </span>
+                    <span className="text-xl font-black text-white leading-none tracking-tight whitespace-nowrap">
+                      {deal.payout_amount}
+                    </span>
+                  </div>
+                )}
+
+                <div className="border-t border-border-gray/40 pt-5 space-y-3">
+                  {deal.rating && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-text">Safety Score</span>
+                      <span className="text-sm font-bold text-navy flex items-center gap-1">
+                        <Star size={14} className="fill-yellow text-yellow" /> {deal.rating} / 5
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-text">Verified</span>
+                    <span className="text-sm font-bold text-navy">{formatDate(deal.verified_date || deal.created_at)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-text">Views</span>
+                    <span className="text-sm font-bold text-navy flex items-center gap-1.5">
+                      <Eye size={14} className="text-navy" />
+                      {formatNumberAbbreviated(deal.views || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                <DealClickTracker
+                  dealLink={deal.offer_link}
+                  slug={slug}
+                  className="flex items-center justify-center gap-2 w-full py-3.5 bg-yellow text-navy font-black text-sm uppercase tracking-wider border-2 border-yellow hover:bg-white hover:border-navy transition-all shadow-sm cursor-pointer"
+                >
+                  Claim Deal <ExternalLink size={16} />
+                </DealClickTracker>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
 
-            {/* Main Column — forced first on mobile */}
-            <div className="lg:col-span-8 space-y-8 order-1 lg:order-none">
-              <article className="bg-white border border-border-gray/50 shadow-sm">
+            {/* Main Column */}
+            <div className="lg:col-span-8 space-y-8 min-w-0">
+              <article className="bg-white border border-border-gray/50 shadow-sm overflow-hidden">
                 <div className="px-6 sm:px-10 pt-6 sm:pt-10">
                   <AdPlacement placement="offer-content" />
                 </div>
 
                 {deal.content && (
                   <div className="px-6 sm:px-10 py-8">
-                    <div className="article-body-custom">
+                    <div className="article-body-custom w-full max-w-full">
                       {parse(contentWithAds, {
                         replace: (node: any) => {
                           if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-1')) {
@@ -274,6 +383,56 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                           }
                           if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-2')) {
                             return <div className="my-8"><AdSense placement="in_content_bottom" /></div>;
+                          }
+                          if (node.type === 'tag' && node.name === 'figure' && node.attribs?.class?.includes('table')) {
+                            return (
+                              <div
+                                className="table-scroll-container my-6"
+                                style={{
+                                  width: '100%',
+                                  maxWidth: '100%',
+                                  overflowX: 'auto',
+                                  WebkitOverflowScrolling: 'touch',
+                                  borderRadius: '8px',
+                                  border: '1px solid #E2E8F0',
+                                  background: '#ffffff',
+                                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                                }}
+                              >
+                                {domToReact(node.children, {
+                                  replace: (childNode: any) => {
+                                    if (childNode.type === 'tag' && childNode.name === 'table') {
+                                      return (
+                                        <table
+                                          className="article-table"
+                                          style={{
+                                            width: '100%',
+                                            borderCollapse: 'collapse',
+                                            borderSpacing: 0,
+                                            margin: 0,
+                                            background: '#ffffff',
+                                          }}
+                                        >
+                                          {domToReact(childNode.children, {
+                                            replace: (subChild: any) => {
+                                              if (subChild.type === 'tag' && (subChild.name === 'td' || subChild.name === 'th' || subChild.name === 'tr')) {
+                                                if (subChild.attribs) {
+                                                  delete subChild.attribs.width;
+                                                  delete subChild.attribs.style;
+                                                  delete subChild.attribs.height;
+                                                }
+                                              }
+                                              return subChild;
+                                            },
+                                          })}
+                                        </table>
+                                      );
+                                    }
+                                    return childNode;
+                                  },
+                                })}
+                              </div>
+                            );
                           }
                           return node;
                         },
@@ -295,6 +454,26 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                     createdAt={deal.created_at}
                   />
                   <Reviews dealId={deal.id} initialReviews={initialReviews} />
+
+                  {/* MOBILE ONLY — Related Deals + Ads UNDER Reviews */}
+                  <div className="lg:hidden mt-8 space-y-6">
+                    {relatedDeals.length > 0 && (
+                      <div className="bg-light-gray/60 border border-border-gray p-6">
+                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-gray/50">
+                          <Star size={18} className="text-navy" />
+                          <h3 className="font-bold text-navy text-sm uppercase tracking-wider">Related Deals</h3>
+                        </div>
+                        <div className="space-y-4">
+                          {relatedDeals.map((d) => (
+                            <DealCard key={d.id} deal={d} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <AdPlacement placement="sidebar" />
+                    <AdSense placement="sidebar" />
+                  </div>
                 </div>
 
                 <div className="px-6 sm:px-10 py-6 border-t border-border-gray/30">
@@ -303,8 +482,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
               </article>
             </div>
 
-            {/* Sidebar — forced after content on mobile, right side on desktop */}
-            <aside className="lg:col-span-4 order-2 lg:order-none">
+            {/* DESKTOP ONLY — Deal Overview in sidebar */}
+            <aside className="lg:col-span-4 min-w-0 hidden lg:block">
               <div className="sticky top-24 space-y-5">
 
                 <div className="bg-white border border-border-gray shadow-sm overflow-hidden">
@@ -434,15 +613,38 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
 
                 <AdPlacement placement="sidebar" />
                 <AdSense placement="sidebar" />
-
               </div>
             </aside>
 
           </div>
+
+          {/* MOBILE ONLY — Redemption UNDER everything */}
+          {withdrawMethods.length > 0 && (
+            <div className="lg:hidden mt-8">
+              <div className="bg-white border border-border-gray shadow-sm overflow-hidden">
+                <div className="bg-navy px-6 py-3 border-b-4 border-yellow">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Redemption</h3>
+                </div>
+                <div className="p-6">
+                  <div className="flex flex-wrap gap-2">
+                    {withdrawMethods.map((method, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1.5 bg-light-gray text-navy text-xs font-bold border border-border-gray/70"
+                      >
+                        {method}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </section>
 
-      {/* RELATED DEALS */}
+      {/* RELATED DEALS — Footer section (bottom of page) */}
       {relatedDeals.length > 0 && (
         <section className="bg-white py-20 border-t border-border-gray/30">
           <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">

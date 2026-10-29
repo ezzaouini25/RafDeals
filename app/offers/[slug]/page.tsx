@@ -11,7 +11,7 @@ import Reviews from '@/components/ui/Reviews';
 import { formatDate, formatNumberAbbreviated } from '@/lib/utils';
 import AdPlacement from '@/components/ui/AdPlacement';
 import AdSense from '@/components/ui/GoogleAdSense';
-import parse from 'html-react-parser';
+import parse, { domToReact } from 'html-react-parser';
 import OfferClickTracker from '@/components/ui/OfferClickTracker';
 import AuthorSection from './AuthorSection';
 import Flag from '@/components/ui/Flag';
@@ -30,20 +30,6 @@ export async function generateStaticParams() {
   const offers = await getAllOffers();
   return offers.map((o) => ({ slug: o.slug }));
 }
-
-const OFFER_PAGE_FAQS = [
-  { id: 1, question: 'What is RafDeals and how does it work?', answer: 'RafDeals is a curated deals site that brings together the best offers and promotions from Impact and ClickBank. We list things like bank bonuses, cashback apps, pet food discounts, beauty deals, home essentials, and travel promos. Instead of hunting across dozens of websites, you can browse everything in one place and click straight through to the brand\'s site to claim the offer.' },
-  { id: 2, question: 'What kind of deals do you feature?', answer: 'A bit of everything, honestly. We list bank bonuses, cashback apps, pet food discounts, beauty deals, home essentials, car offers, travel promos, and plenty of other categories. Most of our offers come from Impact and ClickBank, so you are getting them straight from the brands themselves. If it helps you save money or earn a reward, we probably have something for it.' },
-  { id: 3, question: 'How do I find the best offers on the site?', answer: 'Start by browsing the categories that interest you most, like finance, pets, beauty, or travel. We also highlight a hand-picked selection of the best deals on the homepage each day, so you can see the top offers at a glance. If you are looking for a specific type of deal, use the search bar or filter by region to narrow things down quickly.' },
-  { id: 4, question: 'Do I have to pay to use the site?', answer: 'No, using RafDeals is completely free. We earn a small commission from the merchant when someone claims an offer through our links, and that is what keeps the lights on. You never pay us a fee, a subscription, or a hidden cost to browse and claim deals.' },
-  { id: 5, question: 'How do I actually claim a deal?', answer: 'Click the offer you like, read the short instructions we put on the page, then complete the steps on the merchant\'s website. That could mean signing up, downloading an app, or making a qualifying purchase. Whatever the brand asks for, we spell it out clearly before you click so there are no surprises.' },
-  { id: 6, question: 'How often do you add new offers?', answer: 'Every day, pretty much. We update RafDeals daily because some promotions expire fast, so we are constantly swapping them out and adding fresh ones to the site. If you check back once a week, you will almost always find something new to claim, whether it is a bank bonus or a pet discount.' },
-  { id: 7, question: 'Are these deals available in my country?', answer: 'Most offers are available in the US, UK, or Australia, and a few are global. We put a small label on each offer telling you which region it is for, so you know before you click. If you see an offer that is not available in your country, just skip it and check the rest of the feed.' },
-  { id: 8, question: 'What happens to my personal info when I sign up?', answer: 'RafDeals does not touch your data at all. When you click an offer, you are redirected to the merchant\'s secure website, and they handle your information from that point on. We only partner with brands that have a solid reputation and clear privacy policies, so your details stay in safe hands throughout the signup process.' },
-  { id: 9, question: 'Some offers ask for a deposit. Is that normal?', answer: 'Sometimes, yes, especially with banks and finance offers that require a small deposit to open an account. We always mention it in the offer description so you are not caught off guard. If an offer is free to claim with no deposit needed, we say that too, so you know exactly what you are getting into.' },
-  { id: 10, question: 'Can I trust the brands you list?', answer: 'We only work with merchants we can verify. Before an offer goes live, we check the brand\'s track record, read user reviews, and confirm that their payout or discount process actually works. If a merchant has a history of complaints or shady behavior, they do not make it onto the site.' },
-  { id: 11, question: 'How do I search for a specific deal, like pet food or bank bonuses?', answer: 'Use the search bar at the top of the site or click into the category that matches what you need, like Pets, Finance, or Beauty. Each category page shows every active offer in that section, sorted by popularity or newest first. If you still cannot find what you are looking for, check back later since we add new deals daily and rotate them out often.' },
-];
 
 export default async function OfferDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
@@ -85,12 +71,16 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
 
   const insertAdsIntoContent = (html: string) => {
     if (!html) return '';
+
     const headingRegex = /(<h2[^>]*>.*?<\/h2>|<h3[^>]*>.*?<\/h3>)/gi;
     const headings = html.match(headingRegex) || [];
+
     if (headings.length === 0) {
       const paragraphs = html.split('</p>');
       const totalP = paragraphs.length;
-      if (totalP < 3) return html + '<div class="my-8 ad-placeholder-1"></div>';
+      if (totalP < 3) {
+        return html + '<div class="my-8 ad-placeholder-1"></div>';
+      }
       const partSize = Math.floor(totalP / 3);
       let result = '';
       let adCount = 0;
@@ -107,12 +97,14 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
       }
       return result;
     }
+
     const totalHeadings = headings.length;
     let ad1Position = 0;
     let ad2Position = 0;
     if (totalHeadings >= 3) { ad1Position = 1; ad2Position = 3; }
     else if (totalHeadings === 2) { ad1Position = 1; ad2Position = 2; }
     else { ad1Position = 1; ad2Position = 1; }
+
     let result = '';
     let headingIndex = 0;
     let adCount = 0;
@@ -168,7 +160,6 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
         )}
         <div aria-hidden className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-yellow/10 blur-[120px] pointer-events-none z-0" />
 
-        {/* Breadcrumb */}
         <div className="relative z-30 max-w-container mx-auto px-4 sm:px-6 lg:px-8 pt-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <nav className="flex items-center gap-2 text-xs sm:text-sm text-white/60">
@@ -196,7 +187,6 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
           </div>
         </div>
 
-        {/* Hero body */}
         <div className="relative z-20 max-w-container mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 sm:pt-20 sm:pb-24">
           <div className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -268,19 +258,128 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
 
       {/* MAIN CONTENT */}
       <section className="py-12 sm:py-16 bg-light-gray/40">
-        <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* MOBILE ONLY — Offer Overview above article */}
+          <div className="lg:hidden mb-8">
+            <div className="bg-white border border-border-gray shadow-sm overflow-hidden">
+              <div className="bg-navy px-6 py-4 border-b-4 border-yellow">
+                <h3 className="text-sm font-black uppercase tracking-widest text-white">
+                  Offer Overview
+                </h3>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {categoryName && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-text">Category</span>
+                    <Link
+                      href={`/offers/category/${categorySlug}`}
+                      className="text-sm font-bold text-navy hover:text-yellow transition-colors"
+                    >
+                      {categoryName}
+                    </Link>
+                  </div>
+                )}
+
+                <div className="border-t border-border-gray/40 pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-navy">
+                      Available In
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-navy/60 bg-light-gray border border-border-gray/50 px-2 py-0.5">
+                      {countryCodes.length > 0
+                        ? `${countryCodes.length} ${countryCodes.length === 1 ? 'Country' : 'Countries'}`
+                        : 'Global'}
+                    </span>
+                  </div>
+
+                  {countryCodes.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {countryCodes.map((code) => {
+                        const country = ALL_COUNTRIES.find((c) => c.iso2 === code);
+                        return (
+                          <div
+                            key={code}
+                            className="group flex items-center gap-2 bg-light-gray/80 hover:bg-white border border-border-gray/70 hover:border-navy/40 px-2 py-1.5 shadow-sm transition-all cursor-default select-none"
+                            title={country?.name || code}
+                          >
+                            <div className="relative w-6 h-6 rounded-full overflow-hidden shrink-0 border border-black/15 shadow-inner flex items-center justify-center bg-slate-200">
+                              <span className="absolute inset-0 flex items-center justify-center [&_svg]:w-full [&_svg]:h-full [&_svg]:max-w-none [&_svg]:max-h-none [&_svg]:scale-[1.85] [&_img]:w-full [&_img]:h-full [&_img]:max-w-none [&_img]:max-h-none [&_img]:scale-[1.85] [&_img]:object-cover">
+                                <Flag country={code as any} />
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-bold text-navy tracking-tight">
+                              {country?.name === 'United States' ? 'USA' : country?.name || code}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-light-gray border border-border-gray text-xs font-bold text-navy">
+                      <Globe size={14} className="text-navy" />
+                      Global Availability
+                    </div>
+                  )}
+                </div>
+
+                {offer.payout_amount && (
+                  <div className="flex items-center justify-between gap-3 bg-navy px-3.5 py-2.5 border-l-4 border-yellow">
+                    <span className="text-[10px] font-black uppercase tracking-[0.12em] text-yellow leading-tight">
+                      {payLabel}
+                    </span>
+                    <span className="text-xl font-black text-white leading-none tracking-tight whitespace-nowrap">
+                      {offer.payout_amount}
+                    </span>
+                  </div>
+                )}
+
+                <div className="border-t border-border-gray/40 pt-5 space-y-3">
+                  {offer.rating && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-text">Safety Score</span>
+                      <span className="text-sm font-bold text-navy flex items-center gap-1">
+                        <Star size={14} className="fill-yellow text-yellow" /> {offer.rating} / 5
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-text">Verified</span>
+                    <span className="text-sm font-bold text-navy">{formatDate(offer.verified_date || offer.created_at)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-text">Views</span>
+                    <span className="text-sm font-bold text-navy flex items-center gap-1.5">
+                      <Eye size={14} className="text-navy" />
+                      {formatNumberAbbreviated(offer.views || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                <OfferClickTracker
+                  offerLink={offer.offer_link}
+                  slug={slug}
+                  className="flex items-center justify-center gap-2 w-full py-3.5 bg-yellow text-navy font-black text-sm uppercase tracking-wider border-2 border-yellow hover:bg-white hover:border-navy transition-all shadow-sm cursor-pointer"
+                >
+                  Visit Offer <ExternalLink size={16} />
+                </OfferClickTracker>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
 
-            {/* Main Column — forced FIRST on mobile */}
-            <div className="lg:col-span-8 space-y-8 min-w-0 order-1 lg:order-none">
-              <article className="bg-white border border-border-gray/50 shadow-sm overflow-x-auto">
+            {/* Main Column */}
+            <div className="lg:col-span-8 space-y-8 min-w-0">
+              <article className="bg-white border border-border-gray/50 shadow-sm overflow-hidden">
                 <div className="px-6 sm:px-10 pt-6 sm:pt-10">
                   <AdPlacement placement="offer-content" />
                 </div>
 
                 {offer.content && (
                   <div className="px-6 sm:px-10 py-8">
-                    <div className="article-body-custom">
+                    <div className="article-body-custom w-full max-w-full">
                       {parse(contentWithAds, {
                         replace: (node: any) => {
                           if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-1')) {
@@ -288,6 +387,56 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
                           }
                           if (node.type === 'tag' && node.name === 'div' && node.attribs?.class?.includes('ad-placeholder-2')) {
                             return <div className="my-8"><AdSense placement="in_content_bottom" /></div>;
+                          }
+                          if (node.type === 'tag' && node.name === 'figure' && node.attribs?.class?.includes('table')) {
+                            return (
+                              <div
+                                className="table-scroll-container my-6"
+                                style={{
+                                  width: '100%',
+                                  maxWidth: '100%',
+                                  overflowX: 'auto',
+                                  WebkitOverflowScrolling: 'touch',
+                                  borderRadius: '8px',
+                                  border: '1px solid #E2E8F0',
+                                  background: '#ffffff',
+                                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                                }}
+                              >
+                                {domToReact(node.children, {
+                                  replace: (childNode: any) => {
+                                    if (childNode.type === 'tag' && childNode.name === 'table') {
+                                      return (
+                                        <table
+                                          className="article-table"
+                                          style={{
+                                            width: '100%',
+                                            borderCollapse: 'collapse',
+                                            borderSpacing: 0,
+                                            margin: 0,
+                                            background: '#ffffff',
+                                          }}
+                                        >
+                                          {domToReact(childNode.children, {
+                                            replace: (subChild: any) => {
+                                              if (subChild.type === 'tag' && (subChild.name === 'td' || subChild.name === 'th' || subChild.name === 'tr')) {
+                                                if (subChild.attribs) {
+                                                  delete subChild.attribs.width;
+                                                  delete subChild.attribs.style;
+                                                  delete subChild.attribs.height;
+                                                }
+                                              }
+                                              return subChild;
+                                            },
+                                          })}
+                                        </table>
+                                      );
+                                    }
+                                    return childNode;
+                                  },
+                                })}
+                              </div>
+                            );
                           }
                           return node;
                         },
@@ -309,6 +458,26 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
                     createdAt={offer.created_at}
                   />
                   <Reviews offerId={offer.id} initialReviews={initialReviews} />
+
+                  {/* MOBILE ONLY — Related Offers + Ads UNDER Reviews */}
+                  <div className="lg:hidden mt-8 space-y-6">
+                    {relatedOffers.length > 0 && (
+                      <div className="bg-light-gray/60 border border-border-gray p-6">
+                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-gray/50">
+                          <Star size={18} className="text-navy" />
+                          <h3 className="font-bold text-navy text-sm uppercase tracking-wider">Related Offers</h3>
+                        </div>
+                        <div className="space-y-4">
+                          {relatedOffers.map((o) => (
+                            <OfferCard key={o.id} offer={o} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <AdPlacement placement="sidebar" />
+                    <AdSense placement="sidebar" />
+                  </div>
                 </div>
 
                 <div className="px-6 sm:px-10 py-6 border-t border-border-gray/30">
@@ -317,8 +486,8 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
               </article>
             </div>
 
-            {/* Sidebar — forced SECOND on mobile, right on desktop */}
-            <aside className="lg:col-span-4 min-w-0 self-start order-2 lg:order-none">
+            {/* DESKTOP ONLY — Offer Overview in sidebar */}
+            <aside className="lg:col-span-4 min-w-0 hidden lg:block">
               <div className="sticky top-24 space-y-5">
 
                 <div className="bg-white border border-border-gray shadow-sm overflow-hidden">
@@ -448,15 +617,38 @@ export default async function OfferDetailPage({ params, searchParams }: PageProp
 
                 <AdPlacement placement="sidebar" />
                 <AdSense placement="sidebar" />
-
               </div>
             </aside>
 
           </div>
+
+          {/* MOBILE ONLY — Redemption UNDER everything */}
+          {withdrawMethods.length > 0 && (
+            <div className="lg:hidden mt-8">
+              <div className="bg-white border border-border-gray shadow-sm overflow-hidden">
+                <div className="bg-navy px-6 py-3 border-b-4 border-yellow">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Redemption</h3>
+                </div>
+                <div className="p-6">
+                  <div className="flex flex-wrap gap-2">
+                    {withdrawMethods.map((method, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1.5 bg-light-gray text-navy text-xs font-bold border border-border-gray/70"
+                      >
+                        {method}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </section>
 
-      {/* RELATED OFFERS */}
+      {/* RELATED OFFERS — Footer section (bottom of page) */}
       {relatedOffers.length > 0 && (
         <section className="bg-white py-20 border-t border-border-gray/30">
           <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">
