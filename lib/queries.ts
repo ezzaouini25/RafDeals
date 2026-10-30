@@ -479,6 +479,13 @@ export const getAllLegalPageSlugs = cache(async (): Promise<{slug: string}[]> =>
   return rows as {slug: string}[];
 });
 
+export const getFooterLegalPages = cache(async (): Promise<{ slug: string; title: string }[]> => {
+  const [rows] = await pool.execute(
+    'SELECT slug, title FROM legal_pages WHERE is_published = 1 ORDER BY id ASC'
+  );
+  return rows as { slug: string; title: string }[];
+});
+
 // ============================================================
 // COMMENTS & REVIEWS QUERIES
 // ============================================================

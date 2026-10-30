@@ -11,13 +11,15 @@ interface LayoutWrapperProps {
   offerCategories?: Category[];
   articleCategories?: Category[];
   dealCategories?: Category[];
+  legalPages?: { slug: string; title?: string }[];
 }
 
 export default function LayoutWrapper({
   children,
   offerCategories = [],
   articleCategories = [],
-  dealCategories = []
+  dealCategories = [],
+  legalPages = [],
 }: LayoutWrapperProps) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/admin') || false;
@@ -43,7 +45,14 @@ export default function LayoutWrapper({
         {children}
       </main>
 
-      {!isAdminRoute && <Footer />}
+      {!isAdminRoute && (
+        <Footer
+          offerCategories={offerCategories}
+          articleCategories={articleCategories}
+          dealCategories={dealCategories}
+          legalPages={legalPages}
+        />
+      )}
     </>
   );
 }

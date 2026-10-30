@@ -3,8 +3,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import NewsletterSubscribe from '@/components/ui/NewsletterSubscribe';
-import { useState, useEffect } from 'react';
 import { Category } from '@/types';
+
+interface FooterProps {
+  offerCategories?: Category[];
+  articleCategories?: Category[];
+  dealCategories?: Category[];
+  legalPages?: { slug: string; title?: string }[];
+}
 
 const pages = [
   { href: '/', label: 'Home' },
@@ -14,60 +20,19 @@ const pages = [
   { href: '/contact', label: 'Contact' },
 ];
 
-const getLegalLabel = (slug: string): string => {
-  return slug
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (l) => l.toUpperCase());
-};
+const getLegalLabel = (slug: string): string =>
+  slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
-export default function Footer() {
-  // State for all three columns
-  const [legalPages, setLegalPages] = useState<{ slug: string; title?: string }[]>([]);
-  const [offerCategories, setOfferCategories] = useState<Category[]>([]);
-  const [dealCategories, setDealCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    // 1. Fetch Legal Pages
-    const fetchLegalPages = async () => {
-      try {
-        const res = await fetch('/api/public/legal-pages');
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.length > 0) {
-            setLegalPages(data);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching legal pages:', error);
-      }
-    };
-
-    // 2. Fetch Categories (Offers & Deals)
-    const fetchCategories = async () => {
-      try {
-        const res = await fetch('/api/public/categories');
-        if (res.ok) {
-          const data = await res.json();
-          const allCats = data.categories || [];
-          
-          setOfferCategories(allCats.filter((c: any) => c.type === 'offers' || c.type === 'both'));
-          setDealCategories(allCats.filter((c: any) => c.type === 'deals' || c.type === 'both'));
-        }
-      } catch (error) {
-        console.error('Error fetching categories for footer:', error);
-      }
-    };
-
-    fetchLegalPages();
-    fetchCategories();
-  }, []);
-
+export default function Footer({
+  offerCategories = [],
+  articleCategories = [],
+  dealCategories = [],
+  legalPages = [],
+}: FooterProps) {
   return (
     <footer className="bg-navy text-white border-t border-navy/50">
       <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10">
-          
           {/* Brand */}
           <div className="lg:col-span-2">
             <Link href="/" className="inline-block mb-4 group">
@@ -101,12 +66,12 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Offers Categories */}
+          {/* Offers — same array as Header */}
           <div>
             <h4 className="font-semibold text-white mb-4 tracking-wide uppercase text-xs">Offers</h4>
             <ul className="space-y-2">
               {offerCategories.map((category) => (
-                <li key={category.id}>
+                <li key={`offer-${category.id}`}>
                   <Link
                     href={`/offers/category/${category.slug}`}
                     className="text-sm text-gray-300 hover:text-yellow transition-colors"
@@ -118,12 +83,12 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Deals Categories */}
+          {/* Deals — same array as Header */}
           <div>
             <h4 className="font-semibold text-white mb-4 tracking-wide uppercase text-xs">Deals</h4>
             <ul className="space-y-2">
               {dealCategories.map((category) => (
-                <li key={category.id}>
+                <li key={`deal-${category.id}`}>
                   <Link
                     href={`/deals/category/${category.slug}`}
                     className="text-sm text-gray-300 hover:text-yellow transition-colors"
@@ -135,14 +100,14 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Legal Pages */}
+          {/* Legal — extra data, only thing Footer specifically needs */}
           <div>
             <h4 className="font-semibold text-white mb-4 tracking-wide uppercase text-xs">Legal</h4>
             <ul className="space-y-2">
               {legalPages.map((page) => (
                 <li key={page.slug}>
-                  <Link 
-                    href={`/legal/${page.slug}`} 
+                  <Link
+                    href={`/legal/${page.slug}`}
                     className="text-sm text-gray-300 hover:text-yellow transition-colors"
                   >
                     {page.title || getLegalLabel(page.slug)}
@@ -151,7 +116,6 @@ export default function Footer() {
               ))}
             </ul>
           </div>
-
         </div>
 
         {/* Newsletter */}
@@ -165,16 +129,13 @@ export default function Footer() {
                 Get the latest exclusive offers and verified deal alerts delivered straight to your inbox. No spam, just real savings.
               </p>
             </div>
-            
             <div className="w-full md:w-auto md:min-w-[400px]">
               <NewsletterSubscribe />
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* Bottom Bar */}
       <div className="border-t border-white/10 bg-black/20">
         <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-center">
           <p className="text-sm text-gray-400 text-center">

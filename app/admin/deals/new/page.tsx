@@ -36,6 +36,7 @@ const PAY_NAME_OPTIONS = [
   'Discount',
   'Sale Price',
   'Cashback',
+  'Reward',
   'Subscription Price',
   'Trial Offer',
   'Course Price',

@@ -6,7 +6,7 @@ import HeaderScripts from '@/components/HeaderScripts';
 import PopupAd from '@/components/ui/PopupAd';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import CookieConsent from '@/components/ui/CookieConsent';
-import { getCategories } from '@/lib/queries';
+import { getCategories, getFooterLegalPages  } from '@/lib/queries';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -112,6 +112,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const allCategories = await getCategories();
+  const footerLegalPages = await getFooterLegalPages();  // ← NEW
 
   const offerCategories   = allCategories.filter((c: any) => c.for_offers === 1);
   const articleCategories = allCategories.filter((c: any) => c.for_articles === 1);
@@ -139,6 +140,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           offerCategories={offerCategories}
           articleCategories={articleCategories}
           dealCategories={dealCategories}
+          legalPages={footerLegalPages}
         >
           {children}
         </LayoutWrapper>

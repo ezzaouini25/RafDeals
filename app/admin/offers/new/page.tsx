@@ -28,7 +28,7 @@ import readingTime from 'reading-time';
 // Payout label options (pay_name)
 const PAY_NAME_OPTIONS = [
   'Earning Potential', 'Signup Bonus', 'Loan Amount', 'Coverage Amount',
-  'Price', 'Discount', 'Sale Price', 'Cashback', 'Subscription Price',
+  'Price', 'Discount', 'Sale Price', 'Cashback', 'Reward', 'Subscription Price',
   'Trial Offer', 'Course Price', 'Offer Value',
 ];
 
