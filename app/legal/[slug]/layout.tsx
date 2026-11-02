@@ -93,7 +93,7 @@ export default async function LegalLayout({ children, params }: LayoutProps) {
         dangerouslySetInnerHTML={{ __html: escapedJsonLd }}
       />
       <div className="legal-section-wrapper min-h-[70vh] bg-gray-50 py-10 px-4 sm:px-6 lg:px-8" id="legal-section-wrapper">
-        <div className="max-w-4xl mx-auto bg-white p-6 sm:p-10 shadow-sm border border-gray-100 rounded-none">
+        <div className="max-w-8xl mx-auto bg-white p-6 sm:p-10 shadow-sm border border-gray-100 rounded-none">
           {children}
         </div>
       </div>
