@@ -31,7 +31,6 @@ async function safeUpdate(query: string, params: any[]) {
   try {
     await pool.execute(query, params);
   } catch (error: any) {
-    // Silently bypasses deadlocks during heavy concurrent static page generation
     if (error.code === 'ER_LOCK_DEADLOCK' || error.errno === 1213) {
       console.warn('⚠️ Database lock skipped during build prerender.');
       return;
@@ -166,13 +165,11 @@ export const getOfferBySlug = cache(async (slug: string): Promise<Offer | null> 
   
   const offer = offers[0];
   
-  // ✅ INCREMENT VIEWS IN OFFERS TABLE
   await safeUpdate(
     'UPDATE offers SET views = views + 1 WHERE id = ?',
     [offer.id]
   );
   
-  // ✅ INSERT OR UPDATE ANALYTICS
   await safeUpdate(
     `INSERT INTO analytics (content_id, type, views, clicks, date)
      VALUES (?, 'offer', 1, 0, CURDATE())
@@ -244,8 +241,6 @@ export const incrementOfferClicks = cache(async (slug: string): Promise<void> =>
        ON DUPLICATE KEY UPDATE clicks = clicks + 1`,
       [offerId]
     );
-    
-    console.log(`✅ Click tracked for offer ${offerId} (${slug})`);
   } catch (error) {
     console.error('❌ Error tracking click:', error);
   }
@@ -331,7 +326,7 @@ export const getAllArticles = cache(async (): Promise<Article[]> => {
 });
 
 // ============================================================
-// getArticleBySlug - WITH ANALYTICS & DEADLOCK PROTECTION
+// getArticleBySlug - WITH EXPLICIT ARTICLE VIEW TRACKING
 // ============================================================
 
 export const getArticleBySlug = cache(async (slug: string): Promise<Article | null> => {
@@ -354,19 +349,27 @@ export const getArticleBySlug = cache(async (slug: string): Promise<Article | nu
   
   const article = articles[0];
   
-  // ✅ INCREMENT VIEWS IN ARTICLES TABLE
-  await safeUpdate(
-    'UPDATE articles SET views = views + 1 WHERE id = ?',
-    [article.id]
-  );
-  
-  // ✅ INSERT OR UPDATE ANALYTICS
-  await safeUpdate(
-    `INSERT INTO analytics (content_id, type, views, clicks, date)
-     VALUES (?, 'article', 1, 0, CURDATE())
-     ON DUPLICATE KEY UPDATE views = views + 1`,
-    [article.id]
-  );
+  // Explicitly update article views with error logging
+  try {
+    await safeUpdate(
+      'UPDATE articles SET views = views + 1 WHERE id = ?',
+      [article.id]
+    );
+  } catch (err) {
+    console.error('❌ Failed to update article views:', err);
+  }
+
+  // Explicitly update article analytics with error logging
+  try {
+    await safeUpdate(
+      `INSERT INTO analytics (content_id, type, views, clicks, date)
+       VALUES (?, 'article', 1, 0, CURDATE())
+       ON DUPLICATE KEY UPDATE views = views + 1`,
+      [article.id]
+    );
+  } catch (err) {
+    console.error('❌ Failed to update article analytics:', err);
+  }
   
   return { ...article, category: buildCategory(article) } as Article;
 });
@@ -794,13 +797,11 @@ export const getDealBySlug = cache(async (slug: string): Promise<Deal | null> =>
   
   const deal = deals[0];
   
-  // ✅ INCREMENT VIEWS IN DEALS TABLE
   await safeUpdate(
     'UPDATE deals SET views = views + 1 WHERE id = ?',
     [deal.id]
   );
   
-  // ✅ INSERT OR UPDATE ANALYTICS
   await safeUpdate(
     `INSERT INTO analytics (content_id, type, views, clicks, date)
      VALUES (?, 'deal', 1, 0, CURDATE())
@@ -872,8 +873,6 @@ export const incrementDealClicks = cache(async (slug: string): Promise<void> => 
        ON DUPLICATE KEY UPDATE clicks = clicks + 1`,
       [dealId]
     );
-    
-    console.log(`✅ Click tracked for deal ${dealId} (${slug})`);
   } catch (error) {
     console.error('❌ Error tracking deal click:', error);
   }
