@@ -26,18 +26,30 @@ function buildCategory(row: any) {
   };
 }
 
+// Bulletproof helper: safely updates views/analytics without ever crashing the build on locks
+async function safeUpdate(query: string, params: any[]) {
+  try {
+    await pool.execute(query, params);
+  } catch (error: any) {
+    // Silently bypasses deadlocks during heavy concurrent static page generation
+    if (error.code === 'ER_LOCK_DEADLOCK' || error.errno === 1213) {
+      console.warn('⚠️ Database lock skipped during build prerender.');
+      return;
+    }
+    throw error;
+  }
+}
+
 // ============================================================
 // CATEGORY QUERIES
 // ============================================================
 
 export const getCategories = cache(async (type?: 'offers' | 'articles' | 'deals'): Promise<Category[]> => {
   try {
-    // 1. Fetch all active categories in a single query and cache the result
     const query = 'SELECT * FROM categories WHERE is_active = 1 ORDER BY name ASC';
     const [rows] = await pool.execute(query);
     const allCategories = rows as Category[];
 
-    // 2. If a type was requested, filter in memory without hitting the database again
     if (type) {
       const flag =
         type === 'offers' ? 'for_offers' :
@@ -73,7 +85,7 @@ export const getCategoryBySlug = cache(async (
     'SELECT * FROM categories WHERE slug = ? AND is_active = 1',
     [slug]
   );
-    return (rows as any[])[0] || null;
+  return (rows as any[])[0] || null;
 });
 
 export const getCategoryById = cache(async (id: number): Promise<Category | null> => {
@@ -105,7 +117,7 @@ export const getFeaturedOffers = cache(async (limit = 6): Promise<Offer[]> => {
        LIMIT ${Number(limit)}`
     );
   
-  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Offer[];
+    return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Offer[];
   } catch (error) {
     console.error('❌ MySQL query failed in getFeaturedOffers:', error);
     return [];
@@ -131,7 +143,7 @@ export const getAllOffers = cache(async (): Promise<Offer[]> => {
 });
 
 // ============================================================
-// getOfferBySlug - WITH ANALYTICS (One row per day)
+// getOfferBySlug - WITH ANALYTICS & DEADLOCK PROTECTION
 // ============================================================
 
 export const getOfferBySlug = cache(async (slug: string): Promise<Offer | null> => {
@@ -155,15 +167,13 @@ export const getOfferBySlug = cache(async (slug: string): Promise<Offer | null> 
   const offer = offers[0];
   
   // ✅ INCREMENT VIEWS IN OFFERS TABLE
-  await pool.execute(
+  await safeUpdate(
     'UPDATE offers SET views = views + 1 WHERE id = ?',
     [offer.id]
   );
   
-  // ✅ INSERT OR UPDATE ANALYTICS - ONE ROW PER DAY
-  // If record exists for today → views + 1
-  // If no record for today → insert new row with views = 1
-  await pool.execute(
+  // ✅ INSERT OR UPDATE ANALYTICS
+  await safeUpdate(
     `INSERT INTO analytics (content_id, type, views, clicks, date)
      VALUES (?, 'offer', 1, 0, CURDATE())
      ON DUPLICATE KEY UPDATE views = views + 1`,
@@ -192,13 +202,8 @@ export const getOfferById = cache(async (id: number): Promise<Offer | null> => {
   if (offers.length === 0) return null;
   
   const offer = offers[0];
-  
   return { ...offer, category: buildCategory(offer) } as Offer;
 });
-
-// ============================================================
-// getOfferIdBySlug (for analytics)
-// ============================================================
 
 export const getOfferIdBySlug = cache(async (slug: string): Promise<number | null> => {
   const [rows] = await pool.execute(
@@ -210,12 +215,11 @@ export const getOfferIdBySlug = cache(async (slug: string): Promise<number | nul
 });
 
 // ============================================================
-// incrementOfferClicks - WITH ANALYTICS (One row per day)
+// incrementOfferClicks - WITH ANALYTICS
 // ============================================================
 
 export const incrementOfferClicks = cache(async (slug: string): Promise<void> => {
   try {
-    // ✅ GET OFFER ID
     const [rows] = await pool.execute(
       'SELECT id FROM offers WHERE slug = ?',
       [slug]
@@ -229,15 +233,11 @@ export const incrementOfferClicks = cache(async (slug: string): Promise<void> =>
     
     const offerId = offer.id;
     
-    // ✅ UPDATE CLICKS IN OFFERS TABLE
     await pool.execute(
       'UPDATE offers SET clicks = clicks + 1 WHERE id = ?',
       [offerId]
     );
     
-    // ✅ INSERT OR UPDATE ANALYTICS - ONE ROW PER DAY
-    // If record exists for today → clicks + 1
-    // If no record for today → insert new row with clicks = 1
     await pool.execute(
       `INSERT INTO analytics (content_id, type, views, clicks, date)
        VALUES (?, 'offer', 0, 1, CURDATE())
@@ -250,10 +250,6 @@ export const incrementOfferClicks = cache(async (slug: string): Promise<void> =>
     console.error('❌ Error tracking click:', error);
   }
 });
-
-// ============================================================
-// GET OFFERS BY CATEGORY SLUG
-// ============================================================
 
 export const getOffersByCategorySlug = cache(async (categorySlug: string): Promise<Offer[]> => {
   const [rows] = await pool.execute(
@@ -273,10 +269,6 @@ export const getOffersByCategorySlug = cache(async (categorySlug: string): Promi
   
   return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Offer[];
 });
-
-// ============================================================
-// GET OFFERS BY TYPE (FROM offers.type COLUMN)
-// ============================================================
 
 export const getOffersByType = cache(async (type: string): Promise<Offer[]> => {
   const [rows] = await pool.execute(
@@ -315,7 +307,6 @@ export const getLatestArticles = cache(async (limit = 6): Promise<Article[]> => 
      WHERE a.is_active = 1 
      ORDER BY a.is_boosted DESC, a.created_at DESC
      LIMIT ${Number(limit)}`
-    
   );
   
   return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Article[];
@@ -340,7 +331,7 @@ export const getAllArticles = cache(async (): Promise<Article[]> => {
 });
 
 // ============================================================
-// getArticleBySlug - WITH ANALYTICS (One row per day)
+// getArticleBySlug - WITH ANALYTICS & DEADLOCK PROTECTION
 // ============================================================
 
 export const getArticleBySlug = cache(async (slug: string): Promise<Article | null> => {
@@ -364,15 +355,13 @@ export const getArticleBySlug = cache(async (slug: string): Promise<Article | nu
   const article = articles[0];
   
   // ✅ INCREMENT VIEWS IN ARTICLES TABLE
-  await pool.execute(
+  await safeUpdate(
     'UPDATE articles SET views = views + 1 WHERE id = ?',
     [article.id]
   );
   
-  // ✅ INSERT OR UPDATE ANALYTICS - ONE ROW PER DAY
-  // If record exists for today → views + 1
-  // If no record for today → insert new row with views = 1
-  await pool.execute(
+  // ✅ INSERT OR UPDATE ANALYTICS
+  await safeUpdate(
     `INSERT INTO analytics (content_id, type, views, clicks, date)
      VALUES (?, 'article', 1, 0, CURDATE())
      ON DUPLICATE KEY UPDATE views = views + 1`,
@@ -381,10 +370,6 @@ export const getArticleBySlug = cache(async (slug: string): Promise<Article | nu
   
   return { ...article, category: buildCategory(article) } as Article;
 });
-
-// ============================================================
-// GET ARTICLES BY CATEGORY SLUG
-// ============================================================
 
 export const getArticlesByCategorySlug = cache(async (categorySlug: string): Promise<Article[]> => {
   const [rows] = await pool.execute(
@@ -404,10 +389,6 @@ export const getArticlesByCategorySlug = cache(async (categorySlug: string): Pro
   
   return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Article[];
 });
-
-// ============================================================
-// GET ARTICLES BY TYPE (FROM articles.type COLUMN)
-// ============================================================
 
 export const getArticlesByType = cache(async (type: string): Promise<Article[]> => {
   const [rows] = await pool.execute(
@@ -726,7 +707,7 @@ export const checkBlockStatus = cache(async (ip: string, device_fingerprint: str
 });
 
 // ============================================================
-// GET ALL OFFER SLUGS (for generateStaticParams)
+// GET ALL SLUGS (for generateStaticParams)
 // ============================================================
 
 export const getAllOfferSlugs = cache(async (): Promise<{ slug: string }[]> => {
@@ -736,10 +717,6 @@ export const getAllOfferSlugs = cache(async (): Promise<{ slug: string }[]> => {
   return rows as { slug: string }[];
 });
 
-// ============================================================
-// GET ALL ARTICLE SLUGS (for generateStaticParams)
-// ============================================================
-
 export const getAllArticleSlugs = cache(async (): Promise<{ slug: string }[]> => {
   const [rows] = await pool.execute(
     'SELECT slug FROM articles WHERE is_active = 1'
@@ -747,10 +724,8 @@ export const getAllArticleSlugs = cache(async (): Promise<{ slug: string }[]> =>
   return rows as { slug: string }[];
 });
 
-
 // ============================================================
 // DEALS QUERIES - WITH AUTHOR & CATEGORY
-// (mirrors offers queries 100%)
 // ============================================================
 
 export const getFeaturedDeals = cache(async (limit = 6): Promise<Deal[]> => {
@@ -770,7 +745,7 @@ export const getFeaturedDeals = cache(async (limit = 6): Promise<Deal[]> => {
        LIMIT ${Number(limit)}`
     );
   
-  return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Deal[];
+    return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Deal[];
   } catch (error) {
     console.error('❌ MySQL query failed in getFeaturedDeals:', error);
     return [];
@@ -796,7 +771,7 @@ export const getAllDeals = cache(async (): Promise<Deal[]> => {
 });
 
 // ============================================================
-// getDealBySlug - WITH ANALYTICS (One row per day)
+// getDealBySlug - WITH ANALYTICS & DEADLOCK PROTECTION
 // ============================================================
 
 export const getDealBySlug = cache(async (slug: string): Promise<Deal | null> => {
@@ -820,13 +795,13 @@ export const getDealBySlug = cache(async (slug: string): Promise<Deal | null> =>
   const deal = deals[0];
   
   // ✅ INCREMENT VIEWS IN DEALS TABLE
-  await pool.execute(
+  await safeUpdate(
     'UPDATE deals SET views = views + 1 WHERE id = ?',
     [deal.id]
   );
   
-  // ✅ INSERT OR UPDATE ANALYTICS - ONE ROW PER DAY
-  await pool.execute(
+  // ✅ INSERT OR UPDATE ANALYTICS
+  await safeUpdate(
     `INSERT INTO analytics (content_id, type, views, clicks, date)
      VALUES (?, 'deal', 1, 0, CURDATE())
      ON DUPLICATE KEY UPDATE views = views + 1`,
@@ -855,13 +830,8 @@ export const getDealById = cache(async (id: number): Promise<Deal | null> => {
   if (deals.length === 0) return null;
   
   const deal = deals[0];
-  
   return { ...deal, category: buildCategory(deal) } as Deal;
 });
-
-// ============================================================
-// getDealIdBySlug (for analytics)
-// ============================================================
 
 export const getDealIdBySlug = cache(async (slug: string): Promise<number | null> => {
   const [rows] = await pool.execute(
@@ -873,7 +843,7 @@ export const getDealIdBySlug = cache(async (slug: string): Promise<number | null
 });
 
 // ============================================================
-// incrementDealClicks - WITH ANALYTICS (One row per day)
+// incrementDealClicks - WITH ANALYTICS
 // ============================================================
 
 export const incrementDealClicks = cache(async (slug: string): Promise<void> => {
@@ -891,13 +861,11 @@ export const incrementDealClicks = cache(async (slug: string): Promise<void> => 
     
     const dealId = deal.id;
     
-    // ✅ UPDATE CLICKS IN DEALS TABLE
     await pool.execute(
       'UPDATE deals SET clicks = clicks + 1 WHERE id = ?',
       [dealId]
     );
     
-    // ✅ INSERT OR UPDATE ANALYTICS - ONE ROW PER DAY
     await pool.execute(
       `INSERT INTO analytics (content_id, type, views, clicks, date)
        VALUES (?, 'deal', 0, 1, CURDATE())
@@ -910,10 +878,6 @@ export const incrementDealClicks = cache(async (slug: string): Promise<void> => 
     console.error('❌ Error tracking deal click:', error);
   }
 });
-
-// ============================================================
-// GET DEALS BY CATEGORY SLUG
-// ============================================================
 
 export const getDealsByCategorySlug = cache(async (categorySlug: string): Promise<Deal[]> => {
   const [rows] = await pool.execute(
@@ -934,20 +898,12 @@ export const getDealsByCategorySlug = cache(async (categorySlug: string): Promis
   return (rows as any[]).map(row => ({ ...row, category: buildCategory(row) })) as Deal[];
 });
 
-// ============================================================
-// GET ALL DEAL SLUGS (for generateStaticParams)
-// ============================================================
-
 export const getAllDealSlugs = cache(async (): Promise<{ slug: string }[]> => {
   const [rows] = await pool.execute(
     'SELECT slug FROM deals WHERE is_active = 1'
   );
   return rows as { slug: string }[];
 });
-
-// ============================================================
-// REVIEWS BY DEAL ID
-// ============================================================
 
 export const getReviewsByDealId = cache(async (dealId: number): Promise<Comment[]> => {
   const [rows] = await pool.execute(
